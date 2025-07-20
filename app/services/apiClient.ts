@@ -1,11 +1,17 @@
 import { config, HTTP_STATUS, ERROR_MESSAGES, STORAGE_KEYS } from '../utils/config';
 import { ApiResponse, PaginatedResponse } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from './authService';
 
 // API client configuration
 class ApiClient {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
+  private isRefreshing: boolean = false;
+  private failedQueue: Array<{
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }> = [];
 
   constructor() {
     this.baseURL = config.API_BASE_URL;
@@ -51,6 +57,19 @@ class ApiClient {
   // Public method to clear token (used by auth service)
   async clearToken(): Promise<void> {
     return this.removeAuthToken();
+  }
+
+  // Process failed queue
+  private processQueue(error: any, token: string | null = null) {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(token);
+      }
+    });
+    
+    this.failedQueue = [];
   }
 
   // Build headers with auth token
@@ -104,19 +123,18 @@ class ApiClient {
           throw new Error(ERROR_MESSAGES.FORBIDDEN);
         case HTTP_STATUS.NOT_FOUND:
           throw new Error(ERROR_MESSAGES.NOT_FOUND);
-        case HTTP_STATUS.UNPROCESSABLE_ENTITY:
-          throw new Error(data.message || ERROR_MESSAGES.VALIDATION_ERROR);
-        case HTTP_STATUS.TOO_MANY_REQUESTS:
-          throw new Error('Too many requests. Please try again later.');
         case HTTP_STATUS.INTERNAL_SERVER_ERROR:
-        case HTTP_STATUS.SERVICE_UNAVAILABLE:
           throw new Error(ERROR_MESSAGES.SERVER_ERROR);
         default:
-          throw new Error(data.message || ERROR_MESSAGES.UNKNOWN_ERROR);
+          throw new Error(data?.message || ERROR_MESSAGES.UNKNOWN_ERROR);
       }
     }
 
-    return data;
+    return {
+      success: true,
+      data,
+      message: data?.message || 'Success'
+    };
   }
 
   // Generic request method
@@ -144,8 +162,71 @@ class ApiClient {
       };
 
       console.log('API Request:', url, config);
-      const response = await fetch(url, config);
-      return await this.handleResponse<T>(response);
+      
+      // Add timeout to fetch request (30 seconds for mobile apps)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+      
+      try {
+        const response = await fetch(url, {
+          ...config,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        // Check if response is 401 and we have a token (indicating expired token)
+        if (response.status === 401 && await this.getAuthToken()) {
+          // Try to refresh token
+          if (!this.isRefreshing) {
+            this.isRefreshing = true;
+            
+            try {
+              const refreshResponse = await authService.refreshToken();
+              if (refreshResponse.success) {
+                // Retry the original request with new token
+                const newHeaders = await this.buildHeaders(
+                  isFormData ? {} : (options.headers as Record<string, string>)
+                );
+                
+                if (isFormData && newHeaders['Content-Type']) {
+                  delete newHeaders['Content-Type'];
+                }
+                
+                const retryResponse = await fetch(url, {
+                  ...config,
+                  headers: newHeaders,
+                  signal: controller.signal,
+                });
+                
+                this.isRefreshing = false;
+                return await this.handleResponse<T>(retryResponse);
+              } else {
+                this.isRefreshing = false;
+                // Refresh failed, clear token and throw error
+                await this.removeAuthToken();
+                throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
+              }
+            } catch (refreshError) {
+              this.isRefreshing = false;
+              await this.removeAuthToken();
+              throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
+            }
+          } else {
+            // Another request is already refreshing, wait for it
+            return new Promise((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            });
+          }
+        }
+        
+        return await this.handleResponse<T>(response);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timeout - please check your connection');
+        }
+        throw fetchError;
+      }
     } catch (error) {
       console.error('API Request Error:', error);
       if (error instanceof TypeError && error.message.includes('Network request failed')) {

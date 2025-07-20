@@ -138,16 +138,35 @@ export class AuthService {
   }
 
   /**
-   * Refresh authentication token - Not available in API v2 (uses HTTP-only cookies)
+   * Refresh authentication token
    */
-  // async refreshToken(): Promise<ApiResponse<{ token: string }>> {
-  //   // API v2 handles token refresh automatically via HTTP-only cookies
-  //   return {
-  //     success: true,
-  //     data: { token: '' },
-  //     message: 'Token refresh handled by server'
-  //   };
-  // }
+  async refreshToken(): Promise<ApiResponse<any>> {
+    try {
+      const response = await apiClient.post('/auth/refresh');
+      
+      if (response.data && response.data.token) {
+        // Save the new token
+        await apiClient.saveToken(response.data.token);
+        
+        return {
+          success: true,
+          data: response.data,
+          message: 'Token refreshed successfully'
+        };
+      }
+      
+      return {
+        success: false,
+        message: 'Failed to refresh token'
+      };
+    } catch (error: any) {
+      console.error('❌ Token refresh failed:', error);
+      return {
+        success: false,
+        message: error?.message || 'Failed to refresh token'
+      };
+    }
+  }
 
   /**
    * Send password reset email - Not implemented in API v2 yet

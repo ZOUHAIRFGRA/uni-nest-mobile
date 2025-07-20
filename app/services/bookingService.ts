@@ -5,17 +5,20 @@ import type { Booking } from '../types';
 export const bookingService = {
   // Get all bookings for the current user
   getBookings: async (): Promise<Booking[]> => {
-    const response = await apiClient.get<Booking[]>('/bookings');
-    return response.data || [];
+    const response = await apiClient.get<{ success: boolean; data: { bookings: Booking[] } }>('/bookings/user');
+    if (response.data?.success && response.data?.data?.bookings) {
+      return response.data.data.bookings;
+    }
+    return [];
   },
 
   // Get a specific booking by ID
   getBookingById: async (bookingId: string): Promise<Booking> => {
-    const response = await apiClient.get<Booking>(`/bookings/${bookingId}`);
-    if (!response.data) {
-      throw new Error('Booking not found');
+    const response = await apiClient.get<{ success: boolean; data: Booking }>(`/bookings/${bookingId}`);
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
-    return response.data;
+    throw new Error('Booking not found');
   },
 
   // Create a new booking
@@ -23,24 +26,26 @@ export const bookingService = {
     propertyId: string;
     startDate: string;
     endDate: string;
-    message?: string;
+    monthlyRent: number;
+    securityDeposit: number;
+    roommates?: string[];
   }): Promise<Booking> => {
-    const response = await apiClient.post<Booking>('/bookings', bookingData);
-    if (!response.data) {
-      throw new Error('Failed to create booking');
+    const response = await apiClient.post<{ success: boolean; data: Booking }>('/bookings', bookingData);
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
-    return response.data;
+    throw new Error('Failed to create booking');
   },
 
   // Update booking status
   updateBookingStatus: async (bookingId: string, status: string): Promise<Booking> => {
-    const response = await apiClient.put<Booking>(`/bookings/${bookingId}/status`, {
+    const response = await apiClient.patch<{ success: boolean; data: Booking }>(`/bookings/${bookingId}/status`, {
       status
     });
-    if (!response.data) {
-      throw new Error('Failed to update booking status');
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
-    return response.data;
+    throw new Error('Failed to update booking status');
   },
 
   // Cancel a booking
@@ -48,7 +53,7 @@ export const bookingService = {
     await apiClient.delete(`/bookings/${bookingId}`);
   },
 
-  // Get booking history
+  // Get booking history with pagination
   getBookingHistory: async (page = 1, limit = 20): Promise<{
     bookings: Booking[];
     pagination: {
@@ -57,16 +62,32 @@ export const bookingService = {
       hasMore: boolean;
     };
   }> => {
-    const response = await apiClient.get<{
-      data: Booking[];
-      pagination: any;
-    }>('/bookings/history', {
+    const response = await apiClient.get<{ 
+      success: boolean; 
+      data: { 
+        bookings: Booking[]; 
+        totalCount: number; 
+        currentPage: number; 
+        totalPages: number; 
+      } 
+    }>('/bookings/user', {
       params: { page, limit }
     });
     
+    if (response.data?.success && response.data?.data) {
+      return {
+        bookings: response.data.data.bookings,
+        pagination: {
+          currentPage: response.data.data.currentPage,
+          totalPages: response.data.data.totalPages,
+          hasMore: response.data.data.currentPage < response.data.data.totalPages,
+        },
+      };
+    }
+    
     return {
-      bookings: response.data?.data || [],
-      pagination: response.data?.pagination || {
+      bookings: [],
+      pagination: {
         currentPage: 1,
         totalPages: 1,
         hasMore: false,
@@ -74,23 +95,16 @@ export const bookingService = {
     };
   },
 
-  // Confirm a booking (for property owners)
-  confirmBooking: async (bookingId: string): Promise<Booking> => {
-    const response = await apiClient.put<Booking>(`/bookings/${bookingId}/confirm`);
-    if (!response.data) {
-      throw new Error('Failed to confirm booking');
+  // Process payment for booking
+  processPayment: async (bookingId: string, paymentData: {
+    amount: number;
+    paymentMethod: string;
+    transactionDetails: any;
+  }): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any }>(`/bookings/${bookingId}/payment`, paymentData);
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
-    return response.data;
-  },
-
-  // Reject a booking (for property owners)
-  rejectBooking: async (bookingId: string, reason?: string): Promise<Booking> => {
-    const response = await apiClient.put<Booking>(`/bookings/${bookingId}/reject`, {
-      reason
-    });
-    if (!response.data) {
-      throw new Error('Failed to reject booking');
-    }
-    return response.data;
+    throw new Error('Failed to process payment');
   },
 };

@@ -4,27 +4,53 @@ import type { Notification } from '../types';
 
 export const notificationService = {
   // Get all notifications for the current user
-  getNotifications: async (page = 1, limit = 50): Promise<Notification[]> => {
-    const response = await apiClient.get<Notification[]>('/notifications', {
+  getNotifications: async (page = 1, limit = 50): Promise<{
+    notifications: Notification[];
+    totalCount: number;
+    currentPage: number;
+    totalPages: number;
+    unreadCount: number;
+  }> => {
+    const response = await apiClient.get<{ 
+      success: boolean; 
+      data: { 
+        notifications: Notification[]; 
+        totalCount: number; 
+        currentPage: number; 
+        totalPages: number; 
+        unreadCount: number; 
+      } 
+    }>('/notifications', {
       params: { page, limit }
     });
-    return response.data || [];
+    
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
+    }
+    
+    return {
+      notifications: [],
+      totalCount: 0,
+      currentPage: 1,
+      totalPages: 0,
+      unreadCount: 0,
+    };
   },
 
   // Get unread notifications count
   getUnreadCount: async (): Promise<number> => {
-    const response = await apiClient.get<{ count: number }>('/notifications/unread-count');
-    return response.data?.count || 0;
+    const response = await apiClient.get<{ success: boolean; data: { unreadCount: number } }>('/notifications');
+    return response.data?.data?.unreadCount || 0;
   },
 
   // Mark a notification as read
   markAsRead: async (notificationId: string): Promise<void> => {
-    await apiClient.put(`/notifications/${notificationId}/read`);
+    await apiClient.patch(`/notifications/${notificationId}/read`);
   },
 
   // Mark all notifications as read
   markAllAsRead: async (): Promise<void> => {
-    await apiClient.put('/notifications/read-all');
+    await apiClient.patch('/notifications/read-all');
   },
 
   // Delete a notification
