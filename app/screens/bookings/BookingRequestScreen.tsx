@@ -6,260 +6,286 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useBookingsActions } from '../../store/hooks';
+import { thunks } from '../../store/appThunks';
+import { Property, Booking } from '../../types';
+
+interface BookingRequestScreenProps {
+  property: Property;
+  onBack?: () => void;
+  onBookingSuccess?: (booking: Booking) => void;
+}
 
 /**
- * Booking Request Screen - Create a new booking request
- * Features: Property selection, date picker, roommate options, booking summary
+ * Booking Request Screen - Handles property booking process
+ * Features: Date selection, payment method, booking confirmation
  */
-export const BookingRequestScreen = () => {
-  const [selectedProperty, setSelectedProperty] = useState({
-    id: '1',
-    title: 'Modern Studio in Agdal',
-    price: 2500,
-    location: 'Agdal, Rabat',
-    type: 'Studio',
-  });
-  
-  const [bookingDates, setBookingDates] = useState({
-    startDate: '',
-    endDate: '',
-  });
-  
-  const [specialRequests, setSpecialRequests] = useState('');
-  const [needsRoommate, setNeedsRoommate] = useState(false);
+export const BookingRequestScreen: React.FC<BookingRequestScreenProps> = ({
+  property,
+  onBack,
+  onBookingSuccess,
+}) => {
+  const { loading, error, dispatch } = useBookingsActions();
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  const [paymentMethod, setPaymentMethod] = useState<'WafaCash' | 'CashPlus' | 'Bank Transfer' | 'Cash'>('WafaCash');
+  const [duration, setDuration] = useState(1); // months
+
+  /**
+   * Calculate total amount
+   */
+  const calculateTotal = () => {
+    return property.price * duration;
+  };
+
+  /**
+   * Handle date change
+   */
+  const handleDurationChange = (months: number) => {
+    setDuration(months);
+    const newEndDate = new Date(startDate);
+    newEndDate.setMonth(newEndDate.getMonth() + months);
+    setEndDate(newEndDate);
+  };
 
   /**
    * Handle booking submission
    */
-  const handleSubmitBooking = () => {
-    if (!bookingDates.startDate || !bookingDates.endDate) {
-      Alert.alert('Error', 'Please select booking dates');
-      return;
+  const handleSubmitBooking = async () => {
+    try {
+      const bookingData = {
+        propertyId: property._id,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        paymentMethod,
+        totalAmount: calculateTotal(),
+        message: `Booking request for ${property.title}`,
+      };
+
+      const result = await dispatch(thunks.bookings.createBooking(bookingData));
+      
+      if (result.payload) {
+        Alert.alert(
+          'Booking Submitted!',
+          'Your booking request has been sent to the landlord. You will receive a confirmation soon.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                if (onBookingSuccess && result.payload) {
+                  onBookingSuccess(result.payload);
+                }
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      Alert.alert('Error', 'Failed to submit booking request. Please try again.');
     }
-    
-    Alert.alert(
-      'Booking Request',
-      `Submit booking request for ${selectedProperty.title}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Submit', 
-          onPress: () => {
-            Alert.alert('Success', 'Booking request submitted successfully!');
-            // TODO: Navigate to confirmation screen
-          }
-        }
-      ]
-    );
   };
 
   /**
-   * Calculate booking summary
+   * Render payment method option
    */
-  const calculateBookingSummary = () => {
-    const monthlyRent = selectedProperty.price;
-    const securityDeposit = monthlyRent;
-    const serviceFee = Math.round(monthlyRent * 0.1);
-    const total = monthlyRent + securityDeposit + serviceFee;
-    
-    return {
-      monthlyRent,
-      securityDeposit,
-      serviceFee,
-      total,
-    };
-  };
+  const renderPaymentMethod = (method: typeof paymentMethod, label: string, icon: string) => (
+    <TouchableOpacity
+      onPress={() => setPaymentMethod(method)}
+      className={`p-4 rounded-2xl border-2 mb-3 ${
+        paymentMethod === method
+          ? 'border-purple-500 bg-purple-50'
+          : 'border-gray-200 bg-white'
+      }`}
+    >
+      <View className="flex-row items-center">
+        <Text className="text-2xl mr-3">{icon}</Text>
+        <View className="flex-1">
+          <Text className={`font-bold text-lg ${
+            paymentMethod === method ? 'text-purple-600' : 'text-gray-800'
+          }`}>
+            {label}
+          </Text>
+          <Text className="text-gray-600 text-sm">
+            {method === 'WafaCash' && 'Mobile money transfer'}
+            {method === 'CashPlus' && 'Mobile payment service'}
+            {method === 'Bank Transfer' && 'Direct bank transfer'}
+            {method === 'Cash' && 'Pay in cash on delivery'}
+          </Text>
+        </View>
+        {paymentMethod === method && (
+          <Text className="text-purple-500 text-xl">✓</Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 
-  const summary = calculateBookingSummary();
+  /**
+   * Render duration selector
+   */
+  const renderDurationSelector = () => (
+    <View className="mb-6">
+      <Text className="text-xl font-bold text-gray-800 mb-4">Duration</Text>
+      <View className="flex-row space-x-3">
+        {[1, 3, 6, 12].map((months) => (
+          <TouchableOpacity
+            key={months}
+            onPress={() => handleDurationChange(months)}
+            className={`flex-1 py-3 px-4 rounded-2xl border-2 ${
+              duration === months
+                ? 'border-purple-500 bg-purple-500'
+                : 'border-gray-200 bg-white'
+            }`}
+          >
+            <Text className={`font-bold text-center ${
+              duration === months ? 'text-white' : 'text-gray-700'
+            }`}>
+              {months} {months === 1 ? 'Month' : 'Months'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  /**
+   * Render property summary
+   */
+  const renderPropertySummary = () => (
+    <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm border border-gray-100">
+      <Text className="text-xl font-bold text-gray-800 mb-3">Property Summary</Text>
+      
+      <View className="flex-row items-center mb-3">
+        <Text className="text-lg mr-2">🏠</Text>
+        <Text className="text-gray-700 flex-1">{property.title}</Text>
+      </View>
+      
+      <View className="flex-row items-center mb-3">
+        <Text className="text-lg mr-2">📍</Text>
+        <Text className="text-gray-700 flex-1">{property.location.address}</Text>
+      </View>
+      
+      <View className="flex-row items-center mb-3">
+        <Text className="text-lg mr-2">💰</Text>
+        <Text className="text-gray-700 flex-1">
+          {property.price} {property.currency} per month
+        </Text>
+      </View>
+      
+      <View className="flex-row items-center">
+        <Text className="text-lg mr-2">📅</Text>
+        <Text className="text-gray-700 flex-1">
+          {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+        </Text>
+      </View>
+    </View>
+  );
+
+  /**
+   * Render cost breakdown
+   */
+  const renderCostBreakdown = () => (
+    <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm border border-gray-100">
+      <Text className="text-xl font-bold text-gray-800 mb-3">Cost Breakdown</Text>
+      
+      <View className="space-y-2 mb-4">
+        <View className="flex-row justify-between">
+          <Text className="text-gray-600">Monthly Rent</Text>
+          <Text className="text-gray-800">{property.price} {property.currency}</Text>
+        </View>
+        
+        <View className="flex-row justify-between">
+          <Text className="text-gray-600">Duration</Text>
+          <Text className="text-gray-800">{duration} {duration === 1 ? 'month' : 'months'}</Text>
+        </View>
+        
+        <View className="border-t border-gray-200 pt-2">
+          <View className="flex-row justify-between">
+            <Text className="font-bold text-lg">Total Amount</Text>
+            <Text className="font-bold text-lg text-purple-600">
+              {calculateTotal()} {property.currency}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <Animated.View 
         entering={FadeInUp.delay(200).duration(600)}
-        className="px-6 pt-4 pb-2 bg-white border-b border-gray-100"
+        className="px-6 pt-4 pb-2"
       >
-        <Text className="text-3xl font-bold text-gray-800">
-          Book Property
-        </Text>
-        <Text className="text-gray-600 text-lg">
-          Complete your booking request
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity onPress={onBack} className="p-2">
+            <Text className="text-2xl">←</Text>
+          </TouchableOpacity>
+          <Text className="text-2xl font-bold text-gray-800">Book Property</Text>
+          <View className="w-10" />
+        </View>
       </Animated.View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
         {/* Property Summary */}
-        <Animated.View 
-          entering={FadeInDown.delay(300).duration(600)}
-          className="bg-white p-6 mb-4"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">
-            Property Details
-          </Text>
-          <View className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
-            <Text className="text-lg font-bold text-gray-800 mb-1">
-              {selectedProperty.title}
-            </Text>
-            <Text className="text-gray-600 mb-2">📍 {selectedProperty.location}</Text>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-2xl font-bold text-purple-600">
-                {selectedProperty.price} MAD/month
-              </Text>
-              <View className="bg-blue-50 px-3 py-1 rounded-full">
-                <Text className="text-blue-600 font-medium">{selectedProperty.type}</Text>
-              </View>
-            </View>
-          </View>
+        <Animated.View entering={FadeInDown.delay(400).duration(600)}>
+          {renderPropertySummary()}
         </Animated.View>
 
-        {/* Booking Dates */}
-        <Animated.View 
-          entering={FadeInDown.delay(400).duration(600)}
-          className="bg-white p-6 mb-4"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">
-            Booking Dates
-          </Text>
-          
-          <View className="space-y-4">
-            <View>
-              <Text className="text-gray-700 font-medium mb-2">Start Date</Text>
-              <TextInput
-                value={bookingDates.startDate}
-                onChangeText={(text) => setBookingDates(prev => ({ ...prev, startDate: text }))}
-                placeholder="YYYY-MM-DD"
-                className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800"
-              />
-            </View>
-            
-            <View>
-              <Text className="text-gray-700 font-medium mb-2">End Date</Text>
-              <TextInput
-                value={bookingDates.endDate}
-                onChangeText={(text) => setBookingDates(prev => ({ ...prev, endDate: text }))}
-                placeholder="YYYY-MM-DD"
-                className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800"
-              />
-            </View>
-          </View>
+        {/* Duration Selector */}
+        <Animated.View entering={FadeInDown.delay(600).duration(600)}>
+          {renderDurationSelector()}
         </Animated.View>
 
-        {/* Roommate Options */}
-        <Animated.View 
-          entering={FadeInDown.delay(500).duration(600)}
-          className="bg-white p-6 mb-4"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">
-            Roommate Preferences
-          </Text>
-          
-          <TouchableOpacity
-            onPress={() => setNeedsRoommate(!needsRoommate)}
-            className="flex-row items-center"
-          >
-            <View className={`w-6 h-6 rounded border-2 mr-3 items-center justify-center ${
-              needsRoommate ? 'bg-purple-500 border-purple-500' : 'border-gray-300'
-            }`}>
-              {needsRoommate && (
-                <Text className="text-white text-sm">✓</Text>
-              )}
-            </View>
-            <Text className="text-gray-700 font-medium flex-1">
-              I need help finding a roommate
-            </Text>
-          </TouchableOpacity>
-          
-          {needsRoommate && (
-            <View className="mt-4 p-4 bg-blue-50 rounded-2xl">
-              <Text className="text-blue-800 font-medium mb-2">🤖 AI Roommate Matching</Text>
-              <Text className="text-blue-600">
-                We&apos;ll use our AI system to find compatible roommates based on your preferences and lifestyle.
-              </Text>
-            </View>
-          )}
+        {/* Cost Breakdown */}
+        <Animated.View entering={FadeInDown.delay(800).duration(600)}>
+          {renderCostBreakdown()}
         </Animated.View>
 
-        {/* Special Requests */}
-        <Animated.View 
-          entering={FadeInDown.delay(600).duration(600)}
-          className="bg-white p-6 mb-4"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">
-            Special Requests
-          </Text>
+        {/* Payment Method */}
+        <Animated.View entering={FadeInDown.delay(1000).duration(600)}>
+          <Text className="text-xl font-bold text-gray-800 mb-4">Payment Method</Text>
           
-          <TextInput
-            value={specialRequests}
-            onChangeText={setSpecialRequests}
-            placeholder="Any special requests or questions for the landlord..."
-            multiline
-            numberOfLines={4}
-            className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800"
-            textAlignVertical="top"
-          />
-        </Animated.View>
-
-        {/* Booking Summary */}
-        <Animated.View 
-          entering={FadeInDown.delay(700).duration(600)}
-          className="bg-white p-6 mb-4"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">
-            Booking Summary
-          </Text>
-          
-          <View className="space-y-3">
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-600">Monthly Rent</Text>
-              <Text className="text-gray-800 font-medium">{summary.monthlyRent} MAD</Text>
-            </View>
-            
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-600">Security Deposit</Text>
-              <Text className="text-gray-800 font-medium">{summary.securityDeposit} MAD</Text>
-            </View>
-            
-            <View className="flex-row justify-between items-center">
-              <Text className="text-gray-600">Service Fee (10%)</Text>
-              <Text className="text-gray-800 font-medium">{summary.serviceFee} MAD</Text>
-            </View>
-            
-            <View className="border-t border-gray-200 pt-3">
-              <View className="flex-row justify-between items-center">
-                <Text className="text-lg font-bold text-gray-800">Total</Text>
-                <Text className="text-2xl font-bold text-purple-600">{summary.total} MAD</Text>
-              </View>
-            </View>
-          </View>
+          {renderPaymentMethod('WafaCash', 'WafaCash', '💳')}
+          {renderPaymentMethod('CashPlus', 'CashPlus', '💰')}
+          {renderPaymentMethod('Bank Transfer', 'Bank Transfer', '🏦')}
+          {renderPaymentMethod('Cash', 'Cash', '💵')}
         </Animated.View>
 
         {/* Important Notes */}
         <Animated.View 
-          entering={FadeInDown.delay(800).duration(600)}
-          className="bg-yellow-50 p-6 mb-8 mx-6 rounded-2xl border border-yellow-200"
+          entering={FadeInDown.delay(1200).duration(600)}
+          className="bg-yellow-50 p-4 rounded-2xl mb-6 border border-yellow-200"
         >
-          <Text className="text-lg font-bold text-yellow-800 mb-2">📋 Important Notes</Text>
-          <Text className="text-yellow-700 leading-6">
-            • This is a booking request, not a confirmed booking{'\n'}
-            • The landlord will review and respond within 24 hours{'\n'}
-            • Payment is required only after landlord confirmation{'\n'}
-            • Security deposit is refundable at the end of tenancy
+          <Text className="text-lg font-bold text-yellow-800 mb-2">⚠️ Important Notes</Text>
+          <Text className="text-yellow-700 text-sm leading-5">
+            • Your booking request will be sent to the landlord for approval{'\n'}
+            • Payment instructions will be provided after approval{'\n'}
+            • You can cancel the booking within 24 hours{'\n'}
+            • Contact the landlord for any questions
           </Text>
         </Animated.View>
+
+        {/* Bottom spacing */}
+        <View className="h-8" />
       </ScrollView>
 
-      {/* Bottom Action Button */}
+      {/* Submit Button */}
       <Animated.View 
-        entering={FadeInUp.delay(900).duration(600)}
+        entering={FadeInUp.delay(1400).duration(600)}
         className="bg-white border-t border-gray-200 p-6"
       >
         <TouchableOpacity
           onPress={handleSubmitBooking}
-          className="bg-purple-500 py-4 rounded-2xl"
+          disabled={loading}
+          className={`bg-purple-500 py-4 rounded-2xl ${
+            loading ? 'opacity-70' : ''
+          }`}
           style={{
             shadowColor: '#8B5CF6',
             shadowOffset: { width: 0, height: 4 },
@@ -268,14 +294,17 @@ export const BookingRequestScreen = () => {
             elevation: 8,
           }}
         >
-          <Text className="text-white font-bold text-center text-lg">
-            Submit Booking Request
-          </Text>
+          {loading ? (
+            <View className="flex-row items-center justify-center">
+              <ActivityIndicator size="small" color="white" />
+              <Text className="text-white font-bold text-lg ml-2">Submitting...</Text>
+            </View>
+          ) : (
+            <Text className="text-white font-bold text-lg text-center">
+              Submit Booking Request
+            </Text>
+          )}
         </TouchableOpacity>
-        
-        <Text className="text-gray-500 text-center mt-3 text-sm">
-          By submitting, you agree to our Terms of Service and Privacy Policy
-        </Text>
       </Animated.View>
     </SafeAreaView>
   );

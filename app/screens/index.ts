@@ -20,3 +20,12 @@ export { FavoritesScreen } from './properties/FavoritesScreen';
 
 // Matching
 export { AIMatchingScreen } from './matching/AIMatchingScreen';
+
+// Notifications
+export { NotificationsScreen } from './notifications/NotificationsScreen';
+
+// Bookings
+export { BookingRequestScreen } from './bookings/BookingRequestScreen';
+
+// Profile
+export { ProfileScreen } from './profile/ProfileScreen';

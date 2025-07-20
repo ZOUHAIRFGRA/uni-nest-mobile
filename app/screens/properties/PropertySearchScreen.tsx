@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unescaped-entities */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,22 @@ import {
   TextInput,
   Alert,
   RefreshControl,
+  FlatList,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { usePropertiesActions } from '../../store/hooks';
+import { thunks } from '../../store/appThunks';
+import { Property, SearchFilters } from '../../types';
 
 /**
  * Property Search Screen - Main search interface for properties
  * Features: Smart search, filters, AI recommendations, map view
  */
 export const PropertySearchScreen = () => {
+  const { properties, loading, error, filters, pagination, dispatch } = usePropertiesActions();
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [popularLocations, setPopularLocations] = useState<string[]>([
@@ -28,6 +35,8 @@ export const PropertySearchScreen = () => {
     'Salé'
   ]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
   /**
    * Load recent searches from storage
@@ -50,13 +59,37 @@ export const PropertySearchScreen = () => {
   };
 
   /**
+   * Load properties from API
+   */
+  const loadProperties = useCallback(async (page = 1, isRefresh = false) => {
+    try {
+      const searchParams: SearchFilters = {
+        page,
+        limit: 10,
+        sortBy: 'date',
+        sortOrder: 'desc',
+        query: searchQuery.trim() || undefined,
+        ...filters,
+      };
+
+      await dispatch(thunks.properties.fetchProperties(searchParams));
+      setShowResults(true);
+    } catch (error) {
+      console.error('Error loading properties:', error);
+      Alert.alert('Error', 'Failed to load properties');
+    }
+  }, [dispatch, filters, searchQuery]);
+
+  /**
    * Handle search submission
    */
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      Alert.alert('Search', `Searching for: ${searchQuery}`);
-      // TODO: Navigate to results screen
-      // TODO: Save to recent searches
+      loadProperties(1, true);
+      // Save to recent searches
+      if (!recentSearches.includes(searchQuery.trim())) {
+        setRecentSearches(prev => [searchQuery.trim(), ...prev.slice(0, 4)]);
+      }
     }
   };
 
@@ -71,11 +104,99 @@ export const PropertySearchScreen = () => {
   /**
    * Handle refresh
    */
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadRecentSearches();
-    setTimeout(() => setRefreshing(false), 1000);
+    await loadProperties(1, true);
+    setRefreshing(false);
   };
+
+  /**
+   * Handle load more (pagination)
+   */
+  const onLoadMore = async () => {
+    if (loadingMore || !pagination.hasMore) return;
+    
+    setLoadingMore(true);
+    await loadProperties(pagination.currentPage + 1);
+    setLoadingMore(false);
+  };
+
+  /**
+   * Handle property selection
+   */
+  const handlePropertySelect = (property: Property) => {
+    Alert.alert('Property Selected', `Opening details for: ${property.title}`);
+    // TODO: Navigate to PropertyDetailsScreen
+  };
+
+  /**
+   * Render property card
+   */
+  const renderPropertyCard = ({ item, index }: { item: Property; index: number }) => (
+    <Animated.View
+      entering={FadeInDown.delay(index * 100).duration(600)}
+      className="bg-white rounded-2xl mb-4 shadow-sm border border-gray-100"
+    >
+      <TouchableOpacity
+        onPress={() => handlePropertySelect(item)}
+        activeOpacity={0.9}
+      >
+        {/* Property Image */}
+        <View className="relative">
+          <Image
+            source={{ 
+              uri: item.images?.[0] || 'https://via.placeholder.com/400x250/6366f1/ffffff?text=Property' 
+            }}
+            className="w-full h-48 rounded-t-2xl"
+            resizeMode="cover"
+          />
+          {item.aiScore && (
+            <View className="absolute top-3 left-3">
+              <View className="bg-purple-500 px-2 py-1 rounded-full">
+                <Text className="text-white text-xs font-bold">
+                  🤖 {item.aiScore}% Match
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Property Details */}
+        <View className="p-4">
+          <View className="flex-row justify-between items-start mb-2">
+            <Text className="text-xl font-bold text-gray-800 flex-1 mr-2">
+              {item.title}
+            </Text>
+            <Text className="text-xl font-bold text-purple-600">
+              {item.price} {item.currency}
+            </Text>
+          </View>
+
+          <Text className="text-gray-600 mb-3" numberOfLines={2}>
+            {item.description}
+          </Text>
+
+          <View className="flex-row items-center mb-3">
+            <Text className="text-lg mr-2">📍</Text>
+            <Text className="text-gray-700 flex-1">{item.location.address}</Text>
+          </View>
+
+          {/* Property Info */}
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Text className="text-lg mr-2">🏠</Text>
+              <Text className="text-gray-700 capitalize">{item.roomType}</Text>
+            </View>
+            
+            <View className="flex-row items-center">
+              <Text className="text-lg mr-1">⭐</Text>
+              <Text className="text-gray-700">{item.rating || 'New'}</Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -221,21 +342,84 @@ export const PropertySearchScreen = () => {
           </View>
         </Animated.View>
 
+        {/* Search Results */}
+        {showResults && (
+          <Animated.View 
+            entering={FadeInDown.delay(1200).duration(600)}
+            className="flex-1"
+          >
+            <View className="px-6 mb-4">
+              <Text className="text-xl font-bold text-gray-800">
+                Search Results ({properties.length} properties)
+              </Text>
+            </View>
+            
+            {loading && properties.length === 0 ? (
+              <View className="flex-1 justify-center items-center py-20">
+                <ActivityIndicator size="large" color="#6C63FF" />
+                <Text className="text-gray-600 mt-4">Searching properties...</Text>
+              </View>
+            ) : properties.length > 0 ? (
+              <FlatList
+                data={properties}
+                renderItem={renderPropertyCard}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 20 }}
+                showsVerticalScrollIndicator={false}
+                onEndReached={onLoadMore}
+                onEndReachedThreshold={0.1}
+                ListFooterComponent={
+                  loadingMore ? (
+                    <View className="py-4">
+                      <ActivityIndicator size="large" color="#6C63FF" />
+                    </View>
+                  ) : null
+                }
+              />
+            ) : (
+              <View className="flex-1 justify-center items-center py-20 px-6">
+                <Text className="text-6xl mb-4">🔍</Text>
+                <Text className="text-2xl font-bold text-gray-800 mb-2">
+                  No Properties Found
+                </Text>
+                <Text className="text-gray-600 text-center mb-6">
+                  Try adjusting your search criteria or check back later for new listings
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => loadProperties(1, true)}
+                  className="bg-purple-500 px-8 py-4 rounded-2xl"
+                  style={{
+                    shadowColor: '#8B5CF6',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 8,
+                  }}
+                >
+                  <Text className="text-white font-bold text-lg">Try Again</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.View>
+        )}
+
         {/* Tips Section */}
-        <Animated.View 
-          entering={FadeInDown.delay(1200).duration(600)}
-          className="px-6 mb-8"
-        >
-          <View className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border border-purple-100">
-            <Text className="text-xl font-bold text-gray-800 mb-2">💡 Search Tips</Text>
-            <Text className="text-gray-600 leading-6">
-              • Use specific keywords like "Studio", "Shared room", or "1BR"{'\n'}
-              • Include your university name for nearby options{'\n'}
-              • Try budget ranges like "under 3000 MAD"{'\n'}
-              • Use AI Match for personalized recommendations
-            </Text>
-          </View>
-        </Animated.View>
+        {!showResults && (
+          <Animated.View 
+            entering={FadeInDown.delay(1200).duration(600)}
+            className="px-6 mb-8"
+          >
+            <View className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border border-purple-100">
+              <Text className="text-xl font-bold text-gray-800 mb-2">💡 Search Tips</Text>
+              <Text className="text-gray-600 leading-6">
+                • Use specific keywords like "Studio", "Shared room", or "1BR"{'\n'}
+                • Include your university name for nearby options{'\n'}
+                • Try budget ranges like "under 3000 MAD"{'\n'}
+                • Use AI Match for personalized recommendations
+              </Text>
+            </View>
+          </Animated.View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,431 +7,283 @@ import {
   Image,
   Alert,
   Dimensions,
-  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { Property } from '../../types';
-import { propertyService } from '../../services/propertyService';
-import { bookingService } from '../../services/bookingService';
+import { usePropertiesActions } from '../../store/hooks';
+import { thunks } from '../../store/appThunks';
+import { Property, User } from '../../types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface PropertyDetailsScreenProps {
-  propertyId?: string; // For now, we'll use a default property ID for testing
+  propertyId: string;
+  onBack?: () => void;
+  onBookNow?: (property: Property) => void;
 }
 
 /**
- * Property Details Screen - Detailed view of a single property
- * Features: Image gallery, amenities, booking, contact landlord
+ * Property Details Screen - Shows comprehensive property information
+ * Features: Image gallery, detailed info, amenities, landlord profile, booking
  */
-export const PropertyDetailsScreen = ({ propertyId = '64f7b8c9d4e5f1234567890a' }: PropertyDetailsScreenProps) => {
-  const [property, setProperty] = useState<Property | null>(null);
+export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
+  propertyId,
+  onBack,
+  onBookNow,
+}) => {
+  const { currentProperty, loading, error, dispatch } = usePropertiesActions();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
-
-  /**
-   * Check if property is in favorites
-   */
-  const checkFavoriteStatus = async (propertyId: string) => {
-    try {
-      const response = await propertyService.getFavorites();
-      if (response.success && response.data) {
-        const isFav = response.data.some(fav => fav._id === propertyId);
-        setIsFavorite(isFav);
-      }
-    } catch (error) {
-      console.error('Error checking favorite status:', error);
-      // Silently fail - not critical
-    }
-  };
-
-  /**
-   * Load property details from API
-   */
-  const loadPropertyDetails = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await propertyService.getPropertyById(propertyId);
-      
-      if (response.success && response.data) {
-        setProperty(response.data);
-        // Check if property is in favorites
-        await checkFavoriteStatus(response.data._id);
-      } else {
-        console.error('Failed to load property details:', response.message);
-        Alert.alert('Error', response.message || 'Failed to load property details');
-      }
-    } catch (error) {
-      console.error('Error loading property details:', error);
-      Alert.alert('Error', 'Failed to load property details. Please check your connection.');
-    } finally {
-      setLoading(false);
-    }
-  }, [propertyId]);
-
-  /**
-   * Handle booking request
-    } finally {
-      setLoading(false);
-    }
-  }, [propertyId]);
 
   /**
    * Load property details on component mount
    */
   useEffect(() => {
     loadPropertyDetails();
-  }, [loadPropertyDetails]);
+  }, [propertyId]);
 
   /**
-   * Handle booking request
+   * Load property details from API
    */
-  /**
-   * Handle contact landlord
-   */
-  const handleContactLandlord = () => {
-    if (property && property.landlord) {
-      const landlordName = `${property.landlord.firstName} ${property.landlord.lastName}`;
-      
-      Alert.alert(
-        'Contact Landlord',
-        `Contact ${landlordName}`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          ...(property.landlord.phone ? [{
-            text: 'Call',
-            onPress: () => {
-              Linking.openURL(`tel:${property.landlord!.phone}`).catch(() => {
-                Alert.alert('Error', 'Unable to make phone call');
-              });
-            }
-          }] : []),
-          {
-            text: 'Email',
-            onPress: () => {
-              Linking.openURL(`mailto:${property.landlord!.email}`).catch(() => {
-                Alert.alert('Error', 'Unable to open email client');
-              });
-            }
-          }
-        ]
-      );
+  const loadPropertyDetails = async () => {
+    try {
+      await dispatch(thunks.properties.fetchPropertyDetails(propertyId));
+    } catch (error) {
+      console.error('Error loading property details:', error);
+      Alert.alert('Error', 'Failed to load property details');
     }
   };
 
   /**
-   * Handle booking request
+   * Handle image gallery navigation
    */
-  const handleBookNow = () => {
-    if (!property) return;
-
-    Alert.alert(
-      'Book Property',
-      `Book ${property.title} for ${property.price} MAD/month?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Book', 
-          onPress: async () => {
-            try {
-              // Calculate booking dates (e.g., from today for 1 month)
-              const startDate = new Date().toISOString();
-              const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-              
-              await bookingService.createBooking({
-                propertyId: property._id,
-                startDate,
-                endDate,
-                message: `Booking request for ${property.title}`
-              });
-              
-              Alert.alert('Success', 'Booking request sent successfully!');
-            } catch (error) {
-              console.error('Error creating booking:', error);
-              Alert.alert('Error', 'Failed to send booking request. Please try again.');
-            }
-          }
-        }
-      ]
-    );
+  const handleImageChange = (index: number) => {
+    setCurrentImageIndex(index);
   };
 
   /**
    * Handle favorite toggle
    */
   const handleFavoriteToggle = async () => {
-    if (!property) return;
+    if (!currentProperty) return;
     
     try {
-      if (isFavorite) {
-        await propertyService.removeFromFavorites(property._id);
-        setIsFavorite(false);
-        Alert.alert('Success', 'Removed from favorites');
-      } else {
-        await propertyService.addToFavorites(property._id);
-        setIsFavorite(true);
-        Alert.alert('Success', 'Added to favorites');
-      }
+      await dispatch(thunks.properties.toggleFavorite(currentProperty._id));
+      setIsFavorite(!isFavorite);
     } catch (error) {
       console.error('Error toggling favorite:', error);
-      Alert.alert('Error', 'Failed to update favorites');
+      Alert.alert('Error', 'Failed to update favorite');
     }
+  };
+
+  /**
+   * Handle booking
+   */
+  const handleBookNow = () => {
+    if (!currentProperty) return;
+    
+    if (onBookNow) {
+      onBookNow(currentProperty);
+    } else {
+      Alert.alert('Booking', 'Navigate to booking screen...');
+    }
+  };
+
+  /**
+   * Handle contact landlord
+   */
+  const handleContactLandlord = () => {
+    Alert.alert('Contact', 'Opening chat with landlord...');
   };
 
   /**
    * Render image gallery
    */
   const renderImageGallery = () => {
-    const images = property?.images && property.images.length > 0 
-      ? property.images 
-      : ['https://via.placeholder.com/400x300/6366f1/ffffff?text=No+Image+Available'];
-    
+    if (!currentProperty?.images || currentProperty.images.length === 0) {
+      return (
+        <View className="w-full h-64 bg-gray-200 rounded-2xl items-center justify-center">
+          <Text className="text-4xl mb-2">🏠</Text>
+          <Text className="text-gray-600">No images available</Text>
+        </View>
+      );
+    }
+
     return (
       <View className="relative">
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={(event) => {
-            const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-            setCurrentImageIndex(index);
-          }}
-          scrollEventThrottle={16}
-        >
-          {images.map((image, index) => (
-            <Image
-              key={index}
-              source={{ uri: image }}
-              style={{ width: SCREEN_WIDTH, height: 300 }}
-              className="bg-gray-200"
-            />
-          ))}
-        </ScrollView>
+        <Image
+          source={{ uri: currentProperty.images[currentImageIndex] }}
+          className="w-full h-64 rounded-2xl"
+          resizeMode="cover"
+        />
+        
+        {/* Image indicators */}
+        {currentProperty.images.length > 1 && (
+          <View className="absolute bottom-4 left-0 right-0 flex-row justify-center">
+            {currentProperty.images.map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => handleImageChange(index)}
+                className={`w-2 h-2 rounded-full mx-1 ${
+                  index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                }`}
+              />
+            ))}
+          </View>
+        )}
 
-        {/* Image Indicators */}
-        <View className="absolute bottom-4 left-0 right-0 flex-row justify-center">
-          {images.map((_, index) => (
-            <View
-              key={index}
-              className={`w-2 h-2 rounded-full mx-1 ${
-                index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-              }`}
-            />
-          ))}
-        </View>
-
-        {/* Back Button */}
-        <TouchableOpacity className="absolute top-12 left-4 bg-black/30 p-2 rounded-full">
-          <Text className="text-white text-lg">←</Text>
-        </TouchableOpacity>
-
-        {/* Favorite Button */}
-        <TouchableOpacity
-          onPress={handleFavoriteToggle}
-          className="absolute top-12 right-4 bg-black/30 p-2 rounded-full"
-        >
-          <Text className="text-lg">{isFavorite ? '❤️' : '🤍'}</Text>
-        </TouchableOpacity>
-
-        {/* Compatibility Score */}
-        <View className="absolute bottom-16 right-4 bg-purple-500 px-3 py-1 rounded-full">
-          <Text className="text-white font-bold">
-            {property?.aiScore ? Math.round(property.aiScore * 100) : 85}% Match
-          </Text>
+        {/* Action buttons */}
+        <View className="absolute top-4 right-4 flex-row">
+          <TouchableOpacity
+            onPress={handleFavoriteToggle}
+            className="bg-white/90 w-10 h-10 rounded-full items-center justify-center mr-2"
+          >
+            <Text className="text-xl">{isFavorite ? '❤️' : '🤍'}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={onBack}
+            className="bg-white/90 w-10 h-10 rounded-full items-center justify-center"
+          >
+            <Text className="text-xl">←</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   };
 
-  if (loading) {
+  /**
+   * Render property info section
+   */
+  const renderPropertyInfo = () => {
+    if (!currentProperty) return null;
+
     return (
-      <SafeAreaView className="flex-1 bg-white justify-center items-center">
-        <Text className="text-xl">🏠</Text>
-        <Text className="text-gray-600 mt-2">Loading property details...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (!property) {
-    return (
-      <SafeAreaView className="flex-1 bg-white justify-center items-center">
-        <Text className="text-4xl mb-4">🏠</Text>
-        <Text className="text-xl font-bold text-gray-800 mb-2">Property Not Found</Text>
-        <Text className="text-gray-600 text-center px-6">
-          The property you are looking for is not available
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <View className="flex-1 bg-white">
-      {/* Image Gallery */}
-      {renderImageGallery()}
-
-      {/* Content */}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Property Header */}
-        <Animated.View 
-          entering={FadeInUp.delay(300).duration(600)}
-          className="p-6"
-        >
-          <Text className="text-3xl font-bold text-gray-800 mb-2">
-            {property.title}
+      <View className="p-6">
+        {/* Title and Price */}
+        <View className="flex-row justify-between items-start mb-4">
+          <Text className="text-2xl font-bold text-gray-800 flex-1 mr-4">
+            {currentProperty.title}
           </Text>
-          <Text className="text-gray-600 text-lg mb-4">📍 {property.location.address}, {property.location.city}</Text>
+          <Text className="text-2xl font-bold text-purple-600">
+            {currentProperty.price} {currentProperty.currency}
+          </Text>
+        </View>
 
-          {/* Price and Details */}
-          <View className="flex-row justify-between items-center mb-4">
-            <View>
-              <Text className="text-3xl font-bold text-purple-600">
-                {property.price} MAD
-              </Text>
-              <Text className="text-gray-600">per month</Text>
-            </View>
-            <View className="items-end">
-              <View className="bg-blue-50 px-3 py-1 rounded-full mb-1">
-                <Text className="text-blue-600 font-medium">{property.roomType}</Text>
-              </View>
-              <Text className="text-gray-600">{property.location.nearbyUniversities[0] || 'Near University'}</Text>
-            </View>
-          </View>
+        {/* Location */}
+        <View className="flex-row items-center mb-4">
+          <Text className="text-lg mr-2">📍</Text>
+          <Text className="text-gray-700 flex-1">{currentProperty.location.address}</Text>
+        </View>
 
-          {/* Rating and Reviews */}
-          <View className="flex-row items-center mb-4">
-            <Text className="text-yellow-500 mr-1">⭐</Text>
-            <Text className="text-gray-800 font-medium mr-2">{property.rating}</Text>
-            <Text className="text-gray-600">({property.reviews.length} reviews)</Text>
+        {/* Property details */}
+        <View className="flex-row justify-between mb-4">
+          <View className="flex-row items-center">
+            <Text className="text-lg mr-2">🏠</Text>
+            <Text className="text-gray-700 capitalize">{currentProperty.roomType}</Text>
           </View>
-        </Animated.View>
-
-        {/* Room Details */}
-        <Animated.View 
-          entering={FadeInDown.delay(400).duration(600)}
-          className="px-6 mb-6"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">Room Details</Text>
-          <View className="bg-gray-50 p-4 rounded-2xl">
-            <View className="flex-row justify-between mb-3">
-              <View className="items-center">
-                <Text className="text-2xl mb-1">🛏️</Text>
-                <Text className="text-gray-600 text-sm">Room Type</Text>
-                <Text className="font-bold capitalize">{property.roomType}</Text>
-              </View>
-              <View className="items-center">
-                <Text className="text-2xl mb-1">🪑</Text>
-                <Text className="text-gray-600 text-sm">Furnished</Text>
-                <Text className="font-bold">{property.features.furnished ? 'Yes' : 'No'}</Text>
-              </View>
-              <View className="items-center">
-                <Text className="text-2xl mb-1">�</Text>
-                <Text className="text-gray-600 text-sm">WiFi</Text>
-                <Text className="font-bold">{property.features.wifi ? 'Yes' : 'No'}</Text>
-              </View>
-              <View className="items-center">
-                <Text className="text-2xl mb-1">🅿️</Text>
-                <Text className="text-gray-600 text-sm">Parking</Text>
-                <Text className="font-bold">{property.features.parking ? 'Yes' : 'No'}</Text>
-              </View>
-            </View>
+          
+          <View className="flex-row items-center">
+            <Text className="text-lg mr-1">⭐</Text>
+            <Text className="text-gray-700">{currentProperty.rating || 'New'}</Text>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Description */}
-        <Animated.View 
-          entering={FadeInDown.delay(500).duration(600)}
-          className="px-6 mb-6"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-3">Description</Text>
-          <Text className="text-gray-600 leading-6">{property.description}</Text>
-        </Animated.View>
+        <Text className="text-gray-600 leading-6 mb-6">
+          {currentProperty.description}
+        </Text>
 
-        {/* Amenities */}
-        <Animated.View 
-          entering={FadeInDown.delay(600).duration(600)}
-          className="px-6 mb-6"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">Amenities</Text>
-          <View className="flex-row flex-wrap">
-            {property.amenities.map((amenity, index) => (
-              <View key={index} className="bg-green-50 px-3 py-2 rounded-full mr-2 mb-2 border border-green-100">
-                <Text className="text-green-600 font-medium">✓ {amenity}</Text>
-              </View>
-            ))}
+        {/* AI Score */}
+        {currentProperty.aiScore && (
+          <View className="bg-purple-50 p-4 rounded-2xl mb-6">
+            <View className="flex-row items-center mb-2">
+              <Text className="text-lg mr-2">🤖</Text>
+              <Text className="text-lg font-bold text-purple-600">
+                {currentProperty.aiScore}% Match
+              </Text>
+            </View>
+            <Text className="text-gray-600">
+              This property matches your preferences perfectly!
+            </Text>
           </View>
-        </Animated.View>
+        )}
+      </View>
+    );
+  };
 
-        {/* Features */}
-        <Animated.View 
-          entering={FadeInDown.delay(700).duration(600)}
-          className="px-6 mb-6"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">Features</Text>
-          <View className="flex-row flex-wrap">
-            {Object.entries(property.features)
-              .filter(([_, value]) => value === true)
-              .map(([feature, _], index) => (
-                <View key={index} className="bg-blue-50 px-3 py-2 rounded-full mr-2 mb-2 border border-blue-100">
-                  <Text className="text-blue-600 font-medium capitalize">
-                    {feature.replace(/([A-Z])/g, ' $1').trim()}
-                  </Text>
-                </View>
-              ))}
+  /**
+   * Render amenities section
+   */
+  const renderAmenities = () => {
+    if (!currentProperty?.amenities || currentProperty.amenities.length === 0) {
+      return null;
+    }
+
+    return (
+      <View className="px-6 mb-6">
+        <Text className="text-xl font-bold text-gray-800 mb-4">Amenities</Text>
+        <View className="flex-row flex-wrap">
+          {currentProperty.amenities.map((amenity, index) => (
+            <View key={index} className="bg-gray-100 px-4 py-2 rounded-full mr-3 mb-3">
+              <Text className="text-gray-700 font-medium">{amenity}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  /**
+   * Render landlord section
+   */
+  const renderLandlordSection = () => {
+    if (!currentProperty?.landlord) return null;
+
+    const landlord = currentProperty.landlord as User;
+
+    return (
+      <View className="px-6 mb-6">
+        <Text className="text-xl font-bold text-gray-800 mb-4">Landlord</Text>
+        <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <View className="flex-row items-center mb-3">
+            <View className="w-12 h-12 bg-purple-500 rounded-full items-center justify-center mr-3">
+              <Text className="text-white font-bold text-lg">
+                {landlord.firstName?.charAt(0) || 'L'}
+              </Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-lg font-semibold text-gray-800">
+                {landlord.firstName} {landlord.lastName}
+              </Text>
+              <Text className="text-gray-600">Verified Landlord</Text>
+            </View>
           </View>
-        </Animated.View>
+          
+          <TouchableOpacity
+            onPress={handleContactLandlord}
+            className="bg-purple-500 py-3 rounded-xl"
+          >
+            <Text className="text-white font-bold text-center">Contact Landlord</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
-        {/* Landlord Info */}
-        <Animated.View 
-          entering={FadeInDown.delay(800).duration(600)}
-          className="px-6 mb-6"
-        >
-          <Text className="text-xl font-bold text-gray-800 mb-4">Landlord</Text>
-          <View className="bg-gray-50 p-4 rounded-2xl">
-            {property.landlord ? (
-              <>
-                <View className="flex-row items-center mb-3">
-                  <View className="w-12 h-12 bg-purple-500 rounded-full items-center justify-center mr-3">
-                    <Text className="text-white font-bold text-lg">
-                      {property.landlord.firstName.charAt(0)}
-                    </Text>
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-lg font-bold text-gray-800">
-                      {property.landlord.firstName} {property.landlord.lastName}
-                      {property.landlord.isVerified && (
-                        <Text className="text-green-500"> ✓</Text>
-                      )}
-                    </Text>
-                    <Text className="text-gray-600">{property.landlord.email}</Text>
-                  </View>
-                </View>
-                <Text className="text-gray-600 text-sm">
-                  {property.landlord.phone || 'Contact through the app'}
-                </Text>
-              </>
-            ) : (
-              <Text className="text-gray-600">Landlord information not available</Text>
-            )}
-          </View>
-        </Animated.View>
-
-        {/* Bottom spacing */}
-        <View className="h-32" />
-      </ScrollView>
-
-      {/* Bottom Action Buttons */}
-      <Animated.View 
-        entering={FadeInUp.delay(900).duration(600)}
-        className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-6"
-      >
+  /**
+   * Render action buttons
+   */
+  const renderActionButtons = () => {
+    return (
+      <View className="px-6 pb-6">
         <View className="flex-row space-x-3">
           <TouchableOpacity
             onPress={handleContactLandlord}
             className="flex-1 bg-gray-100 py-4 rounded-2xl"
           >
-            <Text className="text-gray-800 font-bold text-center">Contact</Text>
+            <Text className="text-gray-700 font-bold text-center">💬 Chat</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -445,11 +297,71 @@ export const PropertyDetailsScreen = ({ propertyId = '64f7b8c9d4e5f1234567890a' 
               elevation: 8,
             }}
           >
-            <Text className="text-white font-bold text-center text-lg">Book Now</Text>
+            <Text className="text-white font-bold text-center">Book Now</Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
-    </View>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center">
+        <ActivityIndicator size="large" color="#6C63FF" />
+        <Text className="text-gray-600 mt-4">Loading property details...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !currentProperty) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center items-center px-6">
+        <Text className="text-6xl mb-4">🏠</Text>
+        <Text className="text-2xl font-bold text-gray-800 mb-2">
+          Property Not Found
+        </Text>
+        <Text className="text-gray-600 text-center mb-6">
+          The property you're looking for doesn't exist or has been removed.
+        </Text>
+        <TouchableOpacity
+          onPress={onBack}
+          className="bg-purple-500 px-8 py-4 rounded-2xl"
+        >
+          <Text className="text-white font-bold text-lg">Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Image Gallery */}
+        <Animated.View entering={FadeInUp.delay(200).duration(600)}>
+          {renderImageGallery()}
+        </Animated.View>
+
+        {/* Property Info */}
+        <Animated.View entering={FadeInDown.delay(400).duration(600)}>
+          {renderPropertyInfo()}
+        </Animated.View>
+
+        {/* Amenities */}
+        <Animated.View entering={FadeInDown.delay(600).duration(600)}>
+          {renderAmenities()}
+        </Animated.View>
+
+        {/* Landlord Section */}
+        <Animated.View entering={FadeInDown.delay(800).duration(600)}>
+          {renderLandlordSection()}
+        </Animated.View>
+
+        {/* Action Buttons */}
+        <Animated.View entering={FadeInDown.delay(1000).duration(600)}>
+          {renderActionButtons()}
+        </Animated.View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

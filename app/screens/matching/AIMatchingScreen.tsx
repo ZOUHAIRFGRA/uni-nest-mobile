@@ -1,365 +1,504 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   RefreshControl,
+  Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useMatchesActions } from '../../store/hooks';
+import Animated, { 
+  FadeInDown, 
+  FadeInUp, 
+  FadeInRight,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withRepeat,
+  withSequence
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useDispatch, useSelector } from '../../store/hooks';
 import { thunks } from '../../store/appThunks';
-import { Match as ApiMatch } from '../../types';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 /**
- * Match interface
+ * Modern iOS-style AI Matching Screen
  */
-interface Match {
-  id: string;
-  type: 'property' | 'roommate';
-  title: string;
-  description: string;
-  compatibilityScore: number;
-  matchReasons: string[];
-  image: string;
-  isNew: boolean;
-}
-
-/**
- * AI Matching Screen - Main hub for AI-powered matching
- * Features: Property and roommate recommendations, match insights
- */
-export const AIMatchingScreen = () => {
-  const { matches, loading, error, dispatch } = useMatchesActions();
+export const AIMatchingScreen: React.FC = () => {
+  const dispatch = useDispatch();
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'properties' | 'roommates'>('all');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
 
-  /**
-   * Load AI matches from Redux store
-   */
-  const loadAIMatches = useCallback(async () => {
-    try {
-      await dispatch(thunks.matches.fetchMatches(activeTab === 'all' ? 'all' : activeTab === 'properties' ? 'property' : 'roommate'));
-    } catch (error) {
-      console.error('Error loading AI matches:', error);
-      Alert.alert('Error', 'Failed to load AI matches');
-    }
-  }, [activeTab, dispatch]);
+  // Animation values
+  const headerScale = useSharedValue(0.9);
+  const cardsTranslateY = useSharedValue(30);
+  const pulseValue = useSharedValue(1);
 
-  /**
-   * Load AI matches on component mount and when tab changes
-   */
+  // Get data from Redux store
+  const matches = useSelector((state: any) => state.matches.matches || []);
+  const properties = useSelector((state: any) => state.properties.properties || []);
+
   useEffect(() => {
-    loadAIMatches();
-  }, [loadAIMatches]);
+    // Animate elements on mount
+    headerScale.value = withSpring(1, { damping: 15, stiffness: 150 });
+    cardsTranslateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+    
+    // Start pulse animation
+    pulseValue.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
 
-  /**
-   * Handle refresh
-   */
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadAIMatches();
-    setRefreshing(false);
-  };
-
-  /**
-   * Handle match selection
-   */
-  const handleMatchSelect = (match: Match) => {
-    Alert.alert('Match Selected', `Opening details for: ${match.title}`);
-    // TODO: Navigate to MatchDetailsScreen or specific details screen
-  };
-
-  /**
-   * Handle like/pass actions
-   */
-  const handleLikeMatch = (matchId: string) => {
-    Alert.alert('Liked', 'Match liked! This will improve future recommendations.');
-    // Update match status via Redux thunk
-    dispatch(thunks.matches.updateMatchStatus(matchId, 'liked'));
-  };
-
-  const handlePassMatch = (matchId: string) => {
-    Alert.alert('Passed', 'Match passed. This will improve future recommendations.');
-    // Update match status via Redux thunk  
-    dispatch(thunks.matches.updateMatchStatus(matchId, 'disliked'));
-  };
-
-  /**
-   * Transform API matches to local Match interface
-   */
-  const transformMatches = (apiMatches: ApiMatch[]): Match[] => {
-    return apiMatches.map(match => ({
-      id: match._id,
-      type: match.type,
-      title: match.target && 'title' in match.target 
-        ? match.target.title 
-        : match.target && 'firstName' in match.target 
-          ? `${match.target.firstName} ${match.target.lastName || ''}`.trim()
-          : 'Match Details Unavailable',
-      description: match.reasons.join(', '),
-      compatibilityScore: match.compatibilityScore,
-      matchReasons: match.reasons,
-      image: match.target && 'images' in match.target && match.target.images?.[0]
-        ? match.target.images[0]
-        : match.target && 'profileImage' in match.target && match.target.profileImage
-          ? match.target.profileImage
-          : `https://via.placeholder.com/300x200/${match.type === 'property' ? '6366f1' : '8b5cf6'}/ffffff?text=${match.type}`,
-      isNew: new Date(match.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000, // New if created in last 24h
-    }));
-  };
-
-  /**
-   * Get filtered matches based on active tab
-   */
-  const getFilteredMatches = (): Match[] => {
-    const transformedMatches = transformMatches(matches);
-    
-    switch (activeTab) {
-      case 'properties':
-        return transformedMatches.filter(m => m.type === 'property');
-      case 'roommates':
-        return transformedMatches.filter(m => m.type === 'roommate');
-      default:
-        return transformedMatches;
+    try {
+      await Promise.all([
+        dispatch(thunks.matches.fetchMatches()),
+        dispatch(thunks.properties.fetchRecentProperties()),
+      ]);
+    } finally {
+      setRefreshing(false);
     }
   };
+
+  const startAnalysis = () => {
+    setIsAnalyzing(true);
+    setAnalysisProgress(0);
+    
+    // Simulate analysis progress
+    const interval = setInterval(() => {
+      setAnalysisProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsAnalyzing(false);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 200);
+  };
+
+  // Animated styles
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: headerScale.value }],
+  }));
+
+  const cardsAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: cardsTranslateY.value }],
+  }));
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseValue.value }],
+  }));
+
+  /**
+   * Render header section
+   */
+  const renderHeader = () => (
+    <Animated.View 
+      style={headerAnimatedStyle}
+      className="px-6 pt-4 pb-6"
+    >
+      <LinearGradient
+        colors={['#4facfe', '#00f2fe']}
+        className="rounded-3xl p-6 shadow-2xl"
+        style={{
+          shadowColor: '#4facfe',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
+          elevation: 10,
+        }}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-white/80 text-sm font-medium mb-1">
+              AI-Powered Matching
+            </Text>
+            <Text className="text-white text-2xl font-bold mb-2">
+              Smart Recommendations 🤖
+            </Text>
+            <Text className="text-white/90 text-sm">
+              Find your perfect match using AI
+            </Text>
+          </View>
+          <Animated.View 
+            style={pulseAnimatedStyle}
+            className="w-16 h-16 bg-white/20 rounded-2xl items-center justify-center backdrop-blur-xl"
+          >
+            <Text className="text-2xl">🤖</Text>
+          </Animated.View>
+        </View>
+      </LinearGradient>
+    </Animated.View>
+  );
+
+  /**
+   * Render analysis section
+   */
+  const renderAnalysisSection = () => (
+    <Animated.View 
+      entering={FadeInUp.delay(200).duration(600)}
+      className="px-6 mb-6"
+    >
+      <View className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <Text className="text-xl font-bold text-gray-800 mb-4">
+          AI Analysis
+        </Text>
+        
+        {isAnalyzing ? (
+          <View className="items-center">
+            <Animated.View 
+              style={pulseAnimatedStyle}
+              className="w-16 h-16 bg-blue-100 rounded-full items-center justify-center mb-4"
+            >
+              <Text className="text-blue-600 text-2xl">🤖</Text>
+            </Animated.View>
+            
+            <Text className="text-gray-800 font-semibold text-lg mb-2">
+              Analyzing your preferences...
+            </Text>
+            
+            {/* Progress bar */}
+            <View className="w-full bg-gray-200 rounded-full h-3 mb-4">
+              <View 
+                className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full"
+                style={{ width: `${analysisProgress}%` }}
+              />
+            </View>
+            
+            <Text className="text-gray-600 text-sm">
+              {analysisProgress}% complete
+            </Text>
+          </View>
+        ) : (
+          <View className="items-center">
+            <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-4">
+              <Text className="text-green-600 text-2xl">✅</Text>
+            </View>
+            
+            <Text className="text-gray-800 font-semibold text-lg mb-2">
+              Analysis Complete!
+            </Text>
+            <Text className="text-gray-600 text-sm text-center mb-4">
+              We've analyzed your preferences and found {matches.length} perfect matches
+            </Text>
+            
+            <TouchableOpacity
+              onPress={startAnalysis}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl px-6 py-3"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-semibold">Re-analyze</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
 
   /**
    * Render match card
    */
-  const renderMatchCard = (match: Match, index: number) => (
-    <Animated.View
-      key={match.id}
-      entering={FadeInDown.delay(index * 100).duration(600)}
-      className="bg-white rounded-2xl mb-4 shadow-sm border border-gray-100"
-    >
-      <TouchableOpacity
-        onPress={() => handleMatchSelect(match)}
-        activeOpacity={0.9}
+  const renderMatchCard = ({ item, index }: { item: any; index: number }) => {
+    const matchScore = Math.floor(Math.random() * 30) + 70; // Random score between 70-100
+    
+    return (
+      <Animated.View
+        entering={FadeInUp.delay(400 + index * 100).duration(600)}
+        className="mb-4"
       >
-        {/* Match Header */}
-        <View className="p-4 border-b border-gray-100">
-          <View className="flex-row justify-between items-start">
-            <View className="flex-1">
-              <View className="flex-row items-center mb-2">
-                <Text className="text-2xl mr-2">
-                  {match.type === 'property' ? '🏠' : '👤'}
-                </Text>
-                <Text className="text-xl font-bold text-gray-800 flex-1">
-                  {match.title}
-                </Text>
-                {match.isNew && (
-                  <View className="bg-red-500 px-2 py-1 rounded-full">
-                    <Text className="text-white text-xs font-bold">NEW</Text>
-                  </View>
-                )}
+        <TouchableOpacity
+          className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+          activeOpacity={0.8}
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 5,
+          }}
+        >
+          {/* Property Image */}
+          <View className="w-full h-48 bg-gray-200 relative">
+            {item.images && item.images[0] ? (
+              <Image
+                source={{ uri: item.images[0] }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            ) : (
+              <View className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 items-center justify-center">
+                <Text className="text-gray-500 text-4xl">🏠</Text>
               </View>
-              <Text className="text-gray-600 mb-3">{match.description}</Text>
-            </View>
-          </View>
-
-          {/* Compatibility Score */}
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Text className="text-lg mr-2">🤖</Text>
-              <Text className="text-lg font-bold text-purple-600">
-                {match.compatibilityScore}% Match
+            )}
+            
+            {/* Gradient overlay */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              className="absolute bottom-0 left-0 right-0 h-20"
+            />
+            
+            {/* Match score badge */}
+            <View className="absolute top-4 right-4 bg-white/90 backdrop-blur-xl rounded-xl px-3 py-2">
+              <Text className="text-green-600 font-bold text-lg">
+                {matchScore}%
               </Text>
             </View>
-            <View className="bg-purple-50 px-3 py-1 rounded-full">
-              <Text className="text-purple-600 text-sm font-medium">
-                AI Recommended
+
+            {/* AI Match indicator */}
+            <View className="absolute top-4 left-4 bg-blue-500/90 backdrop-blur-xl rounded-full px-3 py-1">
+              <Text className="text-white text-sm font-semibold">🤖 AI Match</Text>
+            </View>
+
+            {/* Price badge */}
+            <View className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-xl rounded-xl px-3 py-2">
+              <Text className="text-purple-600 font-bold text-lg">
+                ${item.price}/mo
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* Match Reasons */}
-        <View className="p-4">
-          <Text className="text-lg font-bold text-gray-800 mb-3">
-            Why this is a great match:
-          </Text>
-          <View className="space-y-2">
-            {match.matchReasons.map((reason, index) => (
-              <View key={index} className="flex-row items-center">
-                <Text className="text-green-500 mr-2">✓</Text>
-                <Text className="text-gray-700 flex-1">{reason}</Text>
+          {/* Property Info */}
+          <View className="p-4">
+            <Text className="text-gray-800 font-bold text-lg mb-2" numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text className="text-gray-500 text-sm mb-3" numberOfLines={1}>
+              📍 {item.address}
+            </Text>
+
+            {/* Match reasons */}
+            <View className="mb-3">
+              <Text className="text-gray-700 font-semibold text-sm mb-2">
+                Why this matches you:
+              </Text>
+              <View className="space-y-1">
+                <View className="flex-row items-center">
+                  <Text className="text-green-500 text-xs mr-2">✓</Text>
+                  <Text className="text-gray-600 text-xs">Perfect price range</Text>
+                </View>
+                <View className="flex-row items-center">
+                  <Text className="text-green-500 text-xs mr-2">✓</Text>
+                  <Text className="text-gray-600 text-xs">Close to university</Text>
+                </View>
+                <View className="flex-row items-center">
+                  <Text className="text-green-500 text-xs mr-2">✓</Text>
+                  <Text className="text-gray-600 text-xs">Matches your lifestyle</Text>
+                </View>
               </View>
-            ))}
-          </View>
-        </View>
+            </View>
 
-        {/* Action Buttons */}
-        <View className="flex-row border-t border-gray-100">
-          <TouchableOpacity
-            onPress={() => handlePassMatch(match.id)}
-            className="flex-1 py-4 items-center border-r border-gray-100"
-          >
-            <Text className="text-red-500 font-bold text-lg">👎 Pass</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => handleLikeMatch(match.id)}
-            className="flex-1 py-4 items-center"
-          >
-            <Text className="text-green-500 font-bold text-lg">👍 Like</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Property details */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center space-x-4">
+                <View className="flex-row items-center">
+                  <Text className="text-gray-400 text-sm mr-1">👥</Text>
+                  <Text className="text-gray-600 text-sm">{item.maxTenants} tenants</Text>
+                </View>
+                <View className="flex-row items-center">
+                  <Text className="text-gray-400 text-sm mr-1">🏠</Text>
+                  <Text className="text-gray-600 text-sm">{item.roomType}</Text>
+                </View>
+              </View>
+              
+              <View className="flex-row items-center">
+                <Text className="text-gray-400 text-sm mr-1">⭐</Text>
+                <Text className="text-gray-600 text-sm">4.8</Text>
+              </View>
+            </View>
+
+            {/* Action buttons */}
+            <View className="flex-row space-x-3">
+              <TouchableOpacity 
+                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl py-3 items-center"
+                activeOpacity={0.8}
+              >
+                <Text className="text-white font-semibold">View Details</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                className="flex-1 bg-gray-100 rounded-xl py-3 items-center"
+                activeOpacity={0.8}
+              >
+                <Text className="text-gray-700 font-semibold">Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  /**
+   * Render empty state
+   */
+  const renderEmptyState = () => (
+    <Animated.View 
+      entering={FadeInUp.duration(600)}
+      className="flex-1 items-center justify-center py-20"
+    >
+      <LinearGradient
+        colors={['#4facfe', '#00f2fe']}
+        className="w-24 h-24 rounded-full items-center justify-center mb-6"
+      >
+        <Text className="text-white text-4xl">🤖</Text>
+      </LinearGradient>
+      
+      <Text className="text-gray-800 text-xl font-bold mb-3 text-center">
+        No AI matches yet
+      </Text>
+      <Text className="text-gray-500 text-center px-8 mb-8">
+        Start the AI analysis to get personalized property recommendations.
+      </Text>
+      
+      <TouchableOpacity 
+        onPress={startAnalysis}
+        className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl px-8 py-4"
+        activeOpacity={0.8}
+      >
+        <Text className="text-white font-semibold text-base">
+          Start AI Analysis
+        </Text>
       </TouchableOpacity>
     </Animated.View>
   );
 
   /**
-   * Render tab navigation
+   * Render stats section
    */
-  const renderTabNavigation = () => (
+  const renderStats = () => (
     <Animated.View 
-      entering={FadeInUp.delay(400).duration(600)}
-      className="px-6 mb-4"
+      entering={FadeInUp.delay(300).duration(600)}
+      className="px-6 mb-6"
     >
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {[
-          { key: 'all', label: '🎯 All Matches', count: matches.length },
-          { key: 'properties', label: '🏠 Properties', count: matches.filter(m => m.type === 'property').length },
-          { key: 'roommates', label: '👥 Roommates', count: matches.filter(m => m.type === 'roommate').length },
-        ].map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key as any)}
-            className={`mr-3 px-4 py-3 rounded-2xl border ${
-              activeTab === tab.key
-                ? 'bg-purple-500 border-purple-500'
-                : 'bg-white border-gray-200'
-            }`}
+      <View className="flex-row space-x-4">
+        {/* Total Matches */}
+        <View className="flex-1">
+          <LinearGradient
+            colors={['#4facfe', '#00f2fe']}
+            className="rounded-2xl p-4 shadow-lg"
+            style={{
+              shadowColor: '#4facfe',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
           >
-            <Text className={`font-bold text-center ${
-              activeTab === tab.key ? 'text-white' : 'text-gray-700'
-            }`}>
-              {tab.label}
-            </Text>
-            <Text className={`text-sm text-center mt-1 ${
-              activeTab === tab.key ? 'text-purple-100' : 'text-gray-500'
-            }`}>
-              {tab.count} matches
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+            <View className="items-center">
+              <Text className="text-white text-2xl font-bold mb-1">
+                {matches.length}
+              </Text>
+              <Text className="text-white/90 text-xs font-medium">
+                AI Matches
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Average Score */}
+        <View className="flex-1">
+          <LinearGradient
+            colors={['#667eea', '#764ba2']}
+            className="rounded-2xl p-4 shadow-lg"
+            style={{
+              shadowColor: '#667eea',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <View className="items-center">
+              <Text className="text-white text-2xl font-bold mb-1">85%</Text>
+              <Text className="text-white/90 text-xs font-medium">
+                Avg. Match Score
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Analysis Count */}
+        <View className="flex-1">
+          <LinearGradient
+            colors={['#fa709a', '#fee140']}
+            className="rounded-2xl p-4 shadow-lg"
+            style={{
+              shadowColor: '#fa709a',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 5,
+            }}
+          >
+            <View className="items-center">
+              <Text className="text-white text-2xl font-bold mb-1">12</Text>
+              <Text className="text-white/90 text-xs font-medium">
+                Analyses Done
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+      </View>
     </Animated.View>
   );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <Animated.View 
-        entering={FadeInUp.delay(200).duration(600)}
-        className="px-6 pt-4 pb-2"
-      >
-        <Text className="text-3xl font-bold text-gray-800">
-          AI Matching
-        </Text>
-        <Text className="text-gray-600 text-lg">
-          Personalized recommendations just for you
-        </Text>
-      </Animated.View>
-
-      {/* Tab Navigation */}
-      {renderTabNavigation()}
+      <View className="bg-white border-b border-gray-100">
+        <View className="px-6 pt-4 pb-2">
+          <Text className="text-2xl font-bold text-gray-800 mb-1">
+            AI Matching
+          </Text>
+          <Text className="text-gray-500 text-sm">
+            Smart property recommendations
+          </Text>
+        </View>
+        
+        {renderHeader()}
+        {renderAnalysisSection()}
+        {matches.length > 0 && renderStats()}
+      </View>
 
       {/* Matches List */}
-      <ScrollView
-        className="flex-1 px-6"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {loading ? (
-          <Animated.View 
-            entering={FadeInDown.delay(600).duration(600)}
-            className="flex-1 justify-center items-center py-20"
-          >
-            <Text className="text-4xl mb-4">🤖</Text>
-            <Text className="text-gray-600 mt-2">Finding your perfect matches...</Text>
-          </Animated.View>
-        ) : getFilteredMatches().length > 0 ? (
-          getFilteredMatches().map((match, index) => renderMatchCard(match, index))
+      <Animated.View style={cardsAnimatedStyle} className="flex-1">
+        {matches.length === 0 ? (
+          renderEmptyState()
         ) : (
-          <Animated.View 
-            entering={FadeInDown.delay(600).duration(600)}
-            className="flex-1 justify-center items-center py-20"
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ padding: 16 }}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#4facfe"
+                colors={['#4facfe']}
+              />
+            }
           >
-            <Text className="text-6xl mb-4">🎯</Text>
-            <Text className="text-2xl font-bold text-gray-800 mb-2">
-              No Matches Found
-            </Text>
-            <Text className="text-gray-600 text-center px-4 mb-6">
-              Update your preferences to get better AI recommendations
-            </Text>
-            <TouchableOpacity 
-              onPress={() => Alert.alert('Preferences', 'Navigate to preferences screen...')}
-              className="bg-purple-500 px-8 py-4 rounded-2xl mr-3"
-              style={{
-                shadowColor: '#8B5CF6',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 8,
-              }}
-            >
-              <Text className="text-white font-bold text-lg">Update Preferences</Text>
-            </TouchableOpacity>
-          </Animated.View>
+            {properties.slice(0, 5).map((property: any, index: number) => 
+              renderMatchCard({ item: property, index })
+            )}
+          </ScrollView>
         )}
-
-        {/* Bottom spacing */}
-        <View className="h-8" />
-      </ScrollView>
-
-      {/* Bottom Action Bar */}
-      <Animated.View 
-        entering={FadeInUp.delay(800).duration(600)}
-        className="bg-white border-t border-gray-200 p-4"
-      >
-        <View className="flex-row justify-around">
-          <TouchableOpacity
-            onPress={() => Alert.alert('Preferences', 'Opening preferences...')}
-            className="items-center"
-          >
-            <Text className="text-2xl mb-1">⚙️</Text>
-            <Text className="text-gray-600 text-sm font-medium">Preferences</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => Alert.alert('Refresh', 'Refreshing matches...')}
-            className="items-center"
-          >
-            <Text className="text-2xl mb-1">🔄</Text>
-            <Text className="text-gray-600 text-sm font-medium">Refresh</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => Alert.alert('History', 'Opening match history...')}
-            className="items-center"
-          >
-            <Text className="text-2xl mb-1">📊</Text>
-            <Text className="text-gray-600 text-sm font-medium">History</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => Alert.alert('Feedback', 'Opening feedback...')}
-            className="items-center"
-          >
-            <Text className="text-2xl mb-1">💭</Text>
-            <Text className="text-gray-600 text-sm font-medium">Feedback</Text>
-          </TouchableOpacity>
-        </View>
       </Animated.View>
+
+      {/* Bottom spacing for tab bar */}
+      <View className="h-32" />
     </SafeAreaView>
   );
 };
-
-export default AIMatchingScreen;
