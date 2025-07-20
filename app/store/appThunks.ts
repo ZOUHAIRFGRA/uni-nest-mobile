@@ -14,7 +14,6 @@
 
 // import { authService } from '../services/authService'; // ← Not needed for deprecated auth thunks
 import { propertyService } from '../services/propertyService';
-import { chatService } from '../services/chatService';
 import { bookingService } from '../services/bookingService';
 import { notificationService } from '../services/notificationService';
 import { logoutUser } from './slices/authSlice';
@@ -25,7 +24,6 @@ import { SessionHandler } from '../utils/sessionHandler';
 import { propertiesActions } from './slices/propertiesSlice';
 import { matchesActions } from './slices/matchesSlice';
 import { bookingsActions } from './slices/bookingsSlice';
-import { chatsActions } from './slices/chatsSlice';
 import { notificationsActions } from './slices/notificationsSlice';
 import { uiActions } from './slices/uiSlice';
 
@@ -44,22 +42,6 @@ const handleSessionExpiration = async (error: any, dispatch: any): Promise<boole
   return false;
 };
 
-// DEPRECATED: Auth thunks have been moved to authSlice.ts
-// Use these modern Redux Toolkit thunks instead:
-// import { loginUser, registerUser, logoutUser, initializeAuth } from './slices/authSlice';
-/*
-// Auth thunks - DEPRECATED
-export const authThunks = {
-  // These have been replaced by Redux Toolkit thunks in authSlice.ts
-  // login: use loginUser from authSlice.ts
-  // register: use registerUser from authSlice.ts  
-  // logout: use logoutUser from authSlice.ts
-  // NEW: initializeAuth for session restoration
-  // NEW: saveUserPreferences for user preferences
-  // NEW: updateStoredUserData for cached user data
-};
-*/
-
 // Properties thunks
 export const propertiesThunks = {
   fetchProperties: (params: { filters?: SearchFilters; page?: number; limit?: number } = {}) => async (dispatch: any, getState: any) => {
@@ -67,13 +49,36 @@ export const propertiesThunks = {
       dispatch(propertiesActions.fetchPropertiesRequest());
       const response = await propertyService.getProperties(params.filters, params.page, params.limit);
       if (response.success && response.data) {
-        dispatch(propertiesActions.fetchPropertiesSuccess(response.data, response.pagination));
-        return response;
+        dispatch(propertiesActions.fetchPropertiesSuccess(response.data.data, response.data.pagination));
+        return response.data;
       } else {
         throw new Error(response.message || 'Failed to fetch properties');
       }
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to fetch properties';
+      
+      // Check for session expiration and handle logout
+      if (await handleSessionExpiration(error, dispatch)) {
+        return; // Don't dispatch failure action if session expired
+      }
+      
+      dispatch(propertiesActions.fetchPropertiesFailure(errorMessage));
+      throw error;
+    }
+  },
+
+  fetchRecentProperties: () => async (dispatch: any, getState: any) => {
+    try {
+      dispatch(propertiesActions.fetchPropertiesRequest());
+      const response = await propertyService.getProperties({}, 1, 10); // Get first 10 properties
+      if (response.success && response.data) {
+        dispatch(propertiesActions.fetchPropertiesSuccess(response.data.data, response.data.pagination));
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to fetch recent properties');
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to fetch recent properties';
       
       // Check for session expiration and handle logout
       if (await handleSessionExpiration(error, dispatch)) {
@@ -108,25 +113,23 @@ export const propertiesThunks = {
     }
   },
 
-  searchProperties: (query: string, filters?: SearchFilters) => async (dispatch: any, getState: any) => {
+  toggleFavorite: (propertyId: string) => async (dispatch: any, getState: any) => {
     try {
-      dispatch(propertiesActions.searchPropertiesRequest());
-      const response = await propertyService.searchProperties(query, filters);
-      if (response.success && response.data) {
-        dispatch(propertiesActions.searchPropertiesSuccess(response.data, response.pagination));
+      const response = await propertyService.toggleFavorite(propertyId);
+      if (response.success) {
+        dispatch(propertiesActions.toggleFavorite(propertyId));
         return response;
       } else {
-        throw new Error(response.message || 'Search failed');
+        throw new Error(response.message || 'Failed to toggle favorite');
       }
     } catch (error: any) {
-      const errorMessage = error?.message || 'Search failed';
+      const errorMessage = error?.message || 'Failed to toggle favorite';
       
       // Check for session expiration and handle logout
       if (await handleSessionExpiration(error, dispatch)) {
         return; // Don't dispatch failure action if session expired
       }
       
-      dispatch(propertiesActions.searchPropertiesFailure(errorMessage));
       throw error;
     }
   },
@@ -153,12 +156,7 @@ export const bookingsThunks = {
     }
   },
 
-  createBooking: (bookingData: {
-    propertyId: string;
-    startDate: string;
-    endDate: string;
-    message?: string;
-  }) => async (dispatch: any, getState: any) => {
+  createBooking: (bookingData: any) => async (dispatch: any, getState: any) => {
     try {
       dispatch(bookingsActions.createBookingRequest());
       const booking = await bookingService.createBooking(bookingData);
@@ -179,97 +177,33 @@ export const bookingsThunks = {
 
   updateBookingStatus: (bookingId: string, status: string) => async (dispatch: any, getState: any) => {
     try {
-      dispatch(bookingsActions.updateBookingRequest());
       const booking = await bookingService.updateBookingStatus(bookingId, status);
-      dispatch(bookingsActions.updateBookingSuccess(booking));
+      dispatch(bookingsActions.updateBookingStatus(bookingId, status));
       return booking;
     } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to update booking';
+      const errorMessage = error?.message || 'Failed to update booking status';
       
       // Check for session expiration and handle logout
       if (await handleSessionExpiration(error, dispatch)) {
         return; // Don't dispatch failure action if session expired
       }
       
-      dispatch(bookingsActions.updateBookingFailure(errorMessage));
-      throw error;
-    }
-  },
-};
-
-// Chats thunks
-export const chatsThunks = {
-  fetchChats: () => async (dispatch: any, getState: any) => {
-    try {
-      dispatch(chatsActions.fetchChatsRequest());
-      const chats = await chatService.getChats();
-      dispatch(chatsActions.fetchChatsSuccess(chats));
-      return chats;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to fetch chats';
-      
-      // Check for session expiration and handle logout
-      if (await handleSessionExpiration(error, dispatch)) {
-        return; // Don't dispatch failure action if session expired
-      }
-      
-      dispatch(chatsActions.fetchChatsFailure(errorMessage));
       throw error;
     }
   },
 
-  fetchMessages: (chatId: string) => async (dispatch: any, getState: any) => {
+  cancelBooking: (bookingId: string) => async (dispatch: any, getState: any) => {
     try {
-      dispatch(chatsActions.fetchMessagesRequest());
-      const messages = await chatService.getMessages(chatId);
-      dispatch(chatsActions.fetchMessagesSuccess(messages));
-      return messages;
+      await bookingService.cancelBooking(bookingId);
+      dispatch(bookingsActions.cancelBooking(bookingId));
     } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to fetch messages';
+      const errorMessage = error?.message || 'Failed to cancel booking';
       
       // Check for session expiration and handle logout
       if (await handleSessionExpiration(error, dispatch)) {
         return; // Don't dispatch failure action if session expired
       }
       
-      dispatch(chatsActions.fetchMessagesFailure(errorMessage));
-      throw error;
-    }
-  },
-
-  sendMessage: (chatId: string, content: string) => async (dispatch: any, getState: any) => {
-    try {
-      dispatch(chatsActions.sendMessageRequest());
-      const message = await chatService.sendMessage(chatId, content);
-      dispatch(chatsActions.sendMessageSuccess(message));
-      return message;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to send message';
-      
-      // Check for session expiration and handle logout
-      if (await handleSessionExpiration(error, dispatch)) {
-        return; // Don't dispatch failure action if session expired
-      }
-      
-      dispatch(chatsActions.sendMessageFailure(errorMessage));
-      throw error;
-    }
-  },
-
-  createChat: (participantId: string) => async (dispatch: any, getState: any) => {
-    try {
-      const chat = await chatService.createChat(participantId);
-      dispatch(chatsActions.createChatSuccess(chat));
-      return chat;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to create chat';
-      
-      // Check for session expiration and handle logout
-      if (await handleSessionExpiration(error, dispatch)) {
-        return; // Don't dispatch failure action if session expired
-      }
-      
-      dispatch(chatsActions.fetchChatsFailure(errorMessage));
       throw error;
     }
   },
@@ -280,9 +214,9 @@ export const notificationsThunks = {
   fetchNotifications: () => async (dispatch: any, getState: any) => {
     try {
       dispatch(notificationsActions.fetchNotificationsRequest());
-      const notifications = await notificationService.getNotifications();
-      dispatch(notificationsActions.fetchNotificationsSuccess(notifications));
-      return notifications;
+      const result = await notificationService.getNotifications();
+      dispatch(notificationsActions.fetchNotificationsSuccess(result.notifications));
+      return result;
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to fetch notifications';
       
@@ -366,7 +300,6 @@ export const thunks = {
   // auth: authThunks, // ← DEPRECATED: Use Redux Toolkit thunks from authSlice.ts
   properties: propertiesThunks,
   bookings: bookingsThunks,
-  chats: chatsThunks,
   notifications: notificationsThunks,
   matches: matchesThunks,
 };
@@ -377,7 +310,6 @@ export const actions = {
   properties: propertiesActions,
   matches: matchesActions,
   bookings: bookingsActions,
-  chats: chatsActions,
   notifications: notificationsActions,
   ui: uiActions,
 };
