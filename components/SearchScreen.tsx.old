@@ -1,0 +1,355 @@
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import Animated, { FadeInUp, FadeInLeft } from 'react-native-reanimated';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+import { InputField } from './ui/InputField';
+
+// Sample search results data
+const sampleResults = [
+  {
+    id: '1',
+    type: 'property',
+    title: 'Modern Studio Near Campus',
+    subtitle: 'Agdal, Rabat • 2,500 MAD/month',
+    distance: '0.5 km from UM5',
+    rating: 4.8,
+    image: '🏠',
+    aiMatch: 95
+  },
+  {
+    id: '2',
+    type: 'roommate',
+    title: 'Omar Benjelloun',
+    subtitle: 'Hassan II University • Computer Science',
+    distance: 'Same campus',
+    rating: 4.9,
+    image: 'OB',
+    aiMatch: 92
+  },
+  {
+    id: '3',
+    type: 'property',
+    title: 'Shared Apartment',
+    subtitle: 'Hay Riad, Rabat • 1,800 MAD/month',
+    distance: '1.2 km from UM5',
+    rating: 4.6,
+    image: '🏢',
+    aiMatch: 88
+  },
+  {
+    id: '4',
+    type: 'roommate',
+    title: 'Fatima Zahra',
+    subtitle: 'Mohammed V University • Medicine',
+    distance: 'Nearby campus',
+    rating: 4.7,
+    image: 'FZ',
+    aiMatch: 85
+  }
+];
+
+const quickFilters = [
+  { id: 'all', label: 'All', icon: '🔍', active: true },
+  { id: 'properties', label: 'Properties', icon: '🏠', active: false },
+  { id: 'roommates', label: 'Roommates', icon: '👥', active: false },
+  { id: 'nearby', label: 'Nearby', icon: '📍', active: false }
+];
+
+const recentSearches = [
+  'Studio in Agdal',
+  'Computer Science students',
+  'Properties under 3000 MAD',
+  'Hassan II University'
+];
+
+export const SearchScreen = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const ResultCard = ({ item }: { item: any }) => (
+    <Animated.View entering={FadeInUp.delay(100).springify()}>
+      <Card variant="elevated" className="mb-4" padding="lg">
+        <TouchableOpacity activeOpacity={0.8}>
+          <View className="flex-row items-start">
+            {/* Avatar/Image */}
+            <View className={`w-16 h-16 rounded-2xl items-center justify-center mr-4 ${
+              item.type === 'property' 
+                ? 'bg-primary-100' 
+                : 'bg-secondary-100'
+            }`}>
+              {item.type === 'property' ? (
+                <Text className="text-2xl">{item.image}</Text>
+              ) : (
+                <Text className="text-secondary-600 text-lg font-bold">{item.image}</Text>
+              )}
+            </View>
+
+            {/* Content */}
+            <View className="flex-1">
+              <View className="flex-row items-start justify-between mb-2">
+                <Text className="text-lg font-bold text-neutral-800 flex-1 mr-2">
+                  {item.title}
+                </Text>
+                
+                {/* AI Match Badge */}
+                <View className="bg-gradient-to-r from-primary-500 to-primary-600 px-3 py-1 rounded-full">
+                  <Text className="text-white text-xs font-bold">{item.aiMatch}% AI Match</Text>
+                </View>
+              </View>
+
+              <Text className="text-neutral-600 text-md mb-2">{item.subtitle}</Text>
+              
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <Text className="text-neutral-500 text-sm mr-3">📍 {item.distance}</Text>
+                  <Text className="text-neutral-500 text-sm">⭐ {item.rating}</Text>
+                </View>
+                
+                <View className="flex-row gap-2">
+                  <TouchableOpacity className="w-8 h-8 bg-neutral-100 rounded-full items-center justify-center">
+                    <Text className="text-neutral-600 text-sm">❤️</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity className="w-8 h-8 bg-neutral-100 rounded-full items-center justify-center">
+                    <Text className="text-neutral-600 text-sm">💬</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Card>
+    </Animated.View>
+  );
+
+  return (
+    <View className="flex-1 bg-neutral-50">
+      <StatusBar style="dark" />
+      
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {/* Header */}
+        <Animated.View 
+          entering={FadeInUp.delay(100).springify()}
+          className="pt-16 pb-6 px-6"
+        >
+          <View className="flex-row items-center justify-between mb-6">
+            <View>
+              <Text className="text-3xl font-bold text-neutral-800">Search</Text>
+              <Text className="text-neutral-600 text-md">Find your perfect match</Text>
+            </View>
+            
+            <TouchableOpacity 
+              className="w-12 h-12 bg-primary-100 rounded-2xl items-center justify-center shadow-ios"
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <Text className="text-primary-600 text-xl">⚙️</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Bar */}
+          <InputField
+            placeholder="Search properties, roommates, or locations..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            leftIcon={<Text className="text-neutral-400 text-lg">🔍</Text>}
+            rightIcon={
+              searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Text className="text-neutral-400 text-lg">✕</Text>
+                </TouchableOpacity>
+              ) : undefined
+            }
+          />
+        </Animated.View>
+
+        {/* Quick Filters */}
+        <Animated.View 
+          entering={FadeInUp.delay(200).springify()}
+          className="px-6 mb-6"
+        >
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            className="flex-row gap-3"
+          >
+            {quickFilters.map((filter, index) => (
+              <Animated.View key={filter.id} entering={FadeInLeft.delay(200 + index * 50).springify()}>
+                <TouchableOpacity
+                  className={`px-5 py-3 rounded-2xl flex-row items-center shadow-ios ${
+                    activeFilter === filter.id 
+                      ? 'bg-primary-500' 
+                      : 'bg-white'
+                  }`}
+                  onPress={() => setActiveFilter(filter.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-lg mr-2">{filter.icon}</Text>
+                  <Text className={`font-medium text-md ${
+                    activeFilter === filter.id 
+                      ? 'text-white' 
+                      : 'text-neutral-700'
+                  }`}>
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </ScrollView>
+        </Animated.View>
+
+        {/* AI Suggestions */}
+        {!searchQuery && (
+          <Animated.View 
+            entering={FadeInUp.delay(300).springify()}
+            className="px-6 mb-6"
+          >
+            <Card variant="glass" padding="lg" className="bg-gradient-to-br from-primary-50 to-secondary-50">
+              <View className="flex-row items-center mb-4">
+                <View className="w-10 h-10 bg-primary-500 rounded-2xl items-center justify-center mr-3">
+                  <Text className="text-white text-lg">🤖</Text>
+                </View>
+                <Text className="text-xl font-bold text-neutral-800">AI Recommendations</Text>
+              </View>
+              
+              <Text className="text-neutral-600 text-md mb-4">
+                Based on your profile and preferences, here are some personalized suggestions:
+              </Text>
+              
+              <View className="flex-row gap-3">
+                <TouchableOpacity className="bg-white/80 px-4 py-2 rounded-full">
+                  <Text className="text-primary-600 font-medium text-sm">🏠 Properties for you</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity className="bg-white/80 px-4 py-2 rounded-full">
+                  <Text className="text-secondary-600 font-medium text-sm">👥 Compatible roommates</Text>
+                </TouchableOpacity>
+              </View>
+            </Card>
+          </Animated.View>
+        )}
+
+        {/* Recent Searches */}
+        {!searchQuery && (
+          <Animated.View 
+            entering={FadeInUp.delay(400).springify()}
+            className="px-6 mb-6"
+          >
+            <Text className="text-lg font-bold text-neutral-800 mb-4">Recent Searches</Text>
+            
+            <View className="gap-3">
+              {recentSearches.map((search, index) => (
+                <TouchableOpacity
+                  key={index}
+                  className="flex-row items-center p-4 bg-white rounded-2xl shadow-ios"
+                  onPress={() => setSearchQuery(search)}
+                  activeOpacity={0.8}
+                >
+                  <View className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center mr-4">
+                    <Text className="text-neutral-600 text-lg">🕒</Text>
+                  </View>
+                  
+                  <Text className="flex-1 text-neutral-800 text-md">{search}</Text>
+                  
+                  <TouchableOpacity className="w-8 h-8 items-center justify-center">
+                    <Text className="text-neutral-400 text-lg">→</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Search Results */}
+        {searchQuery && (
+          <View className="px-6">
+            <Animated.View entering={FadeInUp.delay(300).springify()}>
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-lg font-bold text-neutral-800">
+                  {sampleResults.length} results found
+                </Text>
+                
+                <TouchableOpacity className="flex-row items-center">
+                  <Text className="text-primary-500 font-medium text-md mr-2">Sort by AI Match</Text>
+                  <Text className="text-primary-500 text-sm">⬇️</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+
+            {sampleResults.map((item) => (
+              <ResultCard key={item.id} item={item} />
+            ))}
+          </View>
+        )}
+
+        {/* Advanced Filters Modal */}
+        {showFilters && (
+          <Animated.View 
+            entering={FadeInUp.delay(100).springify()}
+            className="px-6 mb-6"
+          >
+            <Card variant="elevated" padding="lg">
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-xl font-bold text-neutral-800">Filters</Text>
+                <TouchableOpacity onPress={() => setShowFilters(false)}>
+                  <Text className="text-neutral-500 text-lg">✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View className="gap-4">
+                <View>
+                  <Text className="text-lg font-semibold text-neutral-800 mb-3">Price Range</Text>
+                  <View className="flex-row gap-3">
+                    {['1000-2000', '2000-3000', '3000-5000', '5000+'].map((range) => (
+                      <TouchableOpacity key={range} className="bg-neutral-100 px-4 py-2 rounded-full">
+                        <Text className="text-neutral-700 text-sm">{range} MAD</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-lg font-semibold text-neutral-800 mb-3">Distance</Text>
+                  <View className="flex-row gap-3">
+                    {['< 1 km', '< 5 km', '< 10 km', 'Any'].map((distance) => (
+                      <TouchableOpacity key={distance} className="bg-neutral-100 px-4 py-2 rounded-full">
+                        <Text className="text-neutral-700 text-sm">{distance}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View className="flex-row gap-3 mt-4">
+                  <Button
+                    title="Reset"
+                    onPress={() => {}}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1"
+                  />
+                  
+                  <Button
+                    title="Apply Filters"
+                    onPress={() => setShowFilters(false)}
+                    variant="primary"
+                    size="lg"
+                    className="flex-1"
+                  />
+                </View>
+              </View>
+            </Card>
+          </Animated.View>
+        )}
+
+        {/* Bottom Spacer */}
+        <View className="h-8" />
+      </ScrollView>
+    </View>
+  );
+};

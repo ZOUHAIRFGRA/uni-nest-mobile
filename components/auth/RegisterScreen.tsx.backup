@@ -1,0 +1,377 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  StatusBar,
+  ScrollView,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { InputField, Button } from '../ui';
+import { useAuthActions } from '../../app/store/hooks';
+import { registerUser } from '../../app/store/slices/authSlice';
+
+interface RegisterScreenProps {
+  onNavigateToLogin: () => void;
+  onRegisterSuccess: () => void;
+}
+
+export const RegisterScreen: React.FC<RegisterScreenProps> = ({
+  onNavigateToLogin,
+  onRegisterSuccess,
+}) => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    cin: '',
+    address: '',
+    dob: '',
+    gender: 'Male' as 'Male' | 'Female',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const auth = useAuthActions();
+
+  const updateFormData = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const validateForm = () => {
+    const { firstName, lastName, email, phone, cin, address, dob, password, confirmPassword } = formData;
+
+    if (!firstName.trim()) {
+      Alert.alert('Error', 'Please enter your first name');
+      return false;
+    }
+
+    if (!lastName.trim()) {
+      Alert.alert('Error', 'Please enter your last name');
+      return false;
+    }
+
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return false;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return false;
+    }
+
+    if (!phone.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return false;
+    }
+
+    if (!cin.trim()) {
+      Alert.alert('Error', 'Please enter your national ID (CIN)');
+      return false;
+    }
+
+    if (!address.trim()) {
+      Alert.alert('Error', 'Please enter your address');
+      return false;
+    }
+
+    if (!dob.trim()) {
+      Alert.alert('Error', 'Please enter your date of birth');
+      return false;
+    }
+
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return false;
+    }
+
+    if (!phoneNumber.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return false;
+    }
+
+    if (!password.trim()) {
+      Alert.alert('Error', 'Please enter a password');
+      return false;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return false;
+    }
+
+    if (!acceptedTerms) {
+      Alert.alert('Error', 'Please accept the terms and conditions');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+
+    try {
+      await auth.dispatch(registerUser({
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        userType: formData.userType,
+        phoneNumber: formData.phoneNumber.trim(),
+      }));
+
+      onRegisterSuccess();
+    } catch (error: any) {
+      Alert.alert('Registration Failed', error.message || 'An error occurred during registration');
+    }
+  };
+
+  const handleSocialSignup = async (provider: 'google' | 'facebook' | 'apple') => {
+    Alert.alert('Coming Soon', `${provider} signup will be available soon!`);
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="flex-1 px-6 pt-8">
+            {/* Header */}
+            <View className="items-center mb-8">
+              <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-4">
+                <Text className="text-3xl">🏠</Text>
+              </View>
+              <Text className="text-3xl font-bold text-gray-900 mb-2">Create Account</Text>
+              <Text className="text-gray-600 text-center leading-5">
+                Join thousands of users finding their perfect home
+              </Text>
+            </View>
+
+            {/* Form */}
+            <View className="space-y-4">
+              {/* Full Name Field */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Full Name</Text>
+                <InputField
+                  placeholder="John Doe"
+                  value={formData.fullName}
+                  onChangeText={(value) => updateFormData('fullName', value)}
+                  className="bg-gray-50 border-gray-200"
+                />
+              </View>
+
+              {/* Email Input */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Email Address</Text>
+                <InputField
+                  placeholder="john.doe@example.com"
+                  value={formData.email}
+                  onChangeText={(value) => updateFormData('email', value)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  className="bg-gray-50 border-gray-200"
+                />
+              </View>
+
+              {/* Phone Input */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Phone Number</Text>
+                <InputField
+                  placeholder="+1 (555) 123-4567"
+                  value={formData.phoneNumber}
+                  onChangeText={(value) => updateFormData('phoneNumber', value)}
+                  keyboardType="phone-pad"
+                  className="bg-gray-50 border-gray-200"
+                />
+              </View>
+
+              {/* User Type Selection */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">I am a</Text>
+                <View className="flex-row space-x-3">
+                  <TouchableOpacity
+                    onPress={() => updateFormData('userType', 'student')}
+                    className={`flex-1 p-4 rounded-xl border-2 ${
+                      formData.userType === 'student'
+                        ? 'bg-blue-50 border-blue-500'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <Text className={`font-medium text-center ${
+                      formData.userType === 'student' ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      🎓 Student
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => updateFormData('userType', 'landlord')}
+                    className={`flex-1 p-4 rounded-xl border-2 ${
+                      formData.userType === 'landlord'
+                        ? 'bg-green-50 border-green-500'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <Text className={`font-medium text-center ${
+                      formData.userType === 'landlord' ? 'text-green-600' : 'text-gray-600'
+                    }`}>
+                      🏠 Landlord
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Password Input */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Password</Text>
+                <InputField
+                  placeholder="Create a strong password"
+                  value={formData.password}
+                  onChangeText={(value) => updateFormData('password', value)}
+                  secureTextEntry={!showPassword}
+                  className="bg-gray-50 border-gray-200"
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <Text className="text-gray-500 text-sm">
+                        {showPassword ? 'Hide' : 'Show'}
+                      </Text>
+                    </TouchableOpacity>
+                  }
+                />
+                <Text className="text-gray-500 text-sm mt-1">
+                  Must be at least 6 characters
+                </Text>
+              </View>
+
+              {/* Confirm Password Input */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Confirm Password</Text>
+                <InputField
+                  placeholder="Re-enter your password"
+                  value={formData.confirmPassword}
+                  onChangeText={(value) => updateFormData('confirmPassword', value)}
+                  secureTextEntry={!showConfirmPassword}
+                  className="bg-gray-50 border-gray-200"
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      <Text className="text-gray-500 text-sm">
+                        {showConfirmPassword ? 'Hide' : 'Show'}
+                      </Text>
+                    </TouchableOpacity>
+                  }
+                />
+              </View>
+
+              {/* Terms and Conditions */}
+              <View className="flex-row items-start py-4">
+                <TouchableOpacity
+                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                  className="mr-3 mt-1"
+                >
+                  <View
+                    className={`w-5 h-5 rounded border-2 items-center justify-center ${
+                      acceptedTerms
+                        ? 'bg-green-500 border-green-500'
+                        : 'border-gray-300'
+                    }`}
+                  >
+                    {acceptedTerms && (
+                      <Text className="text-white text-xs">✓</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+                <View className="flex-1">
+                  <Text className="text-gray-600 text-sm leading-5">
+                    I agree to the{' '}
+                    <Text className="text-blue-500 font-medium">Terms of Service</Text>
+                    {' '}and{' '}
+                    <Text className="text-blue-500 font-medium">Privacy Policy</Text>
+                  </Text>
+                </View>
+              </View>
+
+              {/* Register Button */}
+              <Button
+                title="Create Account"
+                onPress={handleRegister}
+                loading={auth.isLoading}
+                className="mt-4"
+              />
+
+              {/* Divider */}
+              <View className="flex-row items-center my-8">
+                <View className="flex-1 h-px bg-gray-200" />
+                <Text className="mx-4 text-gray-500 font-medium">Or sign up with</Text>
+                <View className="flex-1 h-px bg-gray-200" />
+              </View>
+
+              {/* Social Signup Buttons */}
+              <View className="space-y-3">
+                <TouchableOpacity
+                  onPress={() => handleSocialSignup('google')}
+                  className="flex-row items-center justify-center bg-white border border-gray-300 py-4 rounded-2xl"
+                >
+                  <Text className="text-xl mr-3">🔍</Text>
+                  <Text className="text-gray-700 font-medium">Continue with Google</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleSocialSignup('facebook')}
+                  className="flex-row items-center justify-center bg-blue-600 py-4 rounded-2xl"
+                >
+                  <Text className="text-xl mr-3">📘</Text>
+                  <Text className="text-white font-medium">Continue with Facebook</Text>
+                </TouchableOpacity>
+
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    onPress={() => handleSocialSignup('apple')}
+                    className="flex-row items-center justify-center bg-black py-4 rounded-2xl"
+                  >
+                    <Text className="text-xl mr-3">🍎</Text>
+                    <Text className="text-white font-medium">Continue with Apple</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Login Link */}
+              <View className="flex-row justify-center items-center mt-6 mb-8">
+                <Text className="text-gray-600">Already have an account? </Text>
+                <TouchableOpacity onPress={onNavigateToLogin}>
+                  <Text className="text-blue-500 font-semibold">Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+export default RegisterScreen;

@@ -1,0 +1,254 @@
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+
+const settingsData = [
+  {
+    category: 'Account',
+    items: [
+      { id: 'notifications', label: 'Push Notifications', type: 'switch', value: true, icon: '🔔' },
+      { id: 'email', label: 'Email Notifications', type: 'switch', value: false, icon: '📧' },
+      { id: 'privacy', label: 'Privacy Settings', type: 'arrow', icon: '🔒' },
+      { id: 'verification', label: 'Account Verification', type: 'arrow', icon: '✅' },
+    ]
+  },
+  {
+    category: 'Preferences',
+    items: [
+      { id: 'ai_matching', label: 'AI Matching', type: 'switch', value: true, icon: '🤖' },
+      { id: 'location', label: 'Location Services', type: 'switch', value: true, icon: '📍' },
+      { id: 'auto_match', label: 'Auto-Match', type: 'switch', value: false, icon: '⚡' },
+      { id: 'search_radius', label: 'Search Radius', type: 'arrow', icon: '🎯' },
+    ]
+  },
+  {
+    category: 'App',
+    items: [
+      { id: 'language', label: 'Language', type: 'arrow', value: 'English', icon: '🌐' },
+      { id: 'theme', label: 'Dark Mode', type: 'switch', value: false, icon: '🌙' },
+      { id: 'cache', label: 'Clear Cache', type: 'arrow', icon: '🗑️' },
+      { id: 'storage', label: 'Storage Usage', type: 'arrow', icon: '💾' },
+    ]
+  },
+  {
+    category: 'Support',
+    items: [
+      { id: 'help', label: 'Help Center', type: 'arrow', icon: '❓' },
+      { id: 'contact', label: 'Contact Support', type: 'arrow', icon: '📞' },
+      { id: 'feedback', label: 'Send Feedback', type: 'arrow', icon: '💭' },
+      { id: 'rate', label: 'Rate App', type: 'arrow', icon: '⭐' },
+    ]
+  }
+];
+
+export const SettingsScreen = () => {
+  const [settings, setSettings] = useState<Record<string, boolean>>({
+    notifications: true,
+    email: false,
+    ai_matching: true,
+    location: true,
+    auto_match: false,
+    theme: false,
+  });
+
+  const toggleSetting = (key: string) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const SettingItem = ({ item, categoryIndex, itemIndex }: any) => (
+    <Animated.View 
+      entering={FadeInUp.delay(200 + categoryIndex * 100 + itemIndex * 50).springify()}
+    >
+      <TouchableOpacity 
+        className="flex-row items-center py-4 px-1"
+        activeOpacity={0.8}
+        onPress={() => item.type === 'switch' ? toggleSetting(item.id) : console.log('Navigate to', item.label)}
+      >
+        <View className="w-12 h-12 bg-primary-100 rounded-2xl items-center justify-center mr-4">
+          <Text className="text-lg">{item.icon}</Text>
+        </View>
+        
+        <View className="flex-1">
+          <Text className="text-neutral-800 font-medium text-lg">{item.label}</Text>
+          {item.value && item.type === 'arrow' && (
+            <Text className="text-neutral-500 text-md mt-1">{item.value}</Text>
+          )}
+        </View>
+        
+        {item.type === 'switch' ? (
+          <Switch
+            value={settings[item.id]}
+            onValueChange={() => toggleSetting(item.id)}
+            trackColor={{ false: '#E5E7EB', true: '#6C63FF' }}
+            thumbColor={settings[item.id] ? '#FFFFFF' : '#FFFFFF'}
+            style={{ transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] }}
+          />
+        ) : (
+          <Text className="text-neutral-400 text-xl">→</Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  return (
+    <View className="flex-1 bg-neutral-50">
+      <StatusBar style="dark" />
+      
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {/* Header */}
+        <Animated.View 
+          entering={FadeInUp.delay(100).springify()}
+          className="pt-16 pb-6 px-6"
+        >
+          <View className="flex-row items-center justify-between mb-6">
+            <TouchableOpacity className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center">
+              <Text className="text-neutral-600 text-lg">←</Text>
+            </TouchableOpacity>
+            
+            <View className="flex-1 items-center">
+              <Text className="text-3xl font-bold text-neutral-800">Settings</Text>
+            </View>
+            
+            <View className="w-10 h-10" />
+          </View>
+        </Animated.View>
+
+        {/* User Profile Card */}
+        <Animated.View 
+          entering={FadeInUp.delay(150).springify()}
+          className="px-6 mb-6"
+        >
+          <Card variant="glass" padding="lg">
+            <View className="flex-row items-center">
+              <View className="w-16 h-16 bg-primary-500 rounded-full items-center justify-center mr-4">
+                <Text className="text-white text-2xl font-bold">SE</Text>
+              </View>
+              
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-neutral-800 mb-1">Sarah El Mansouri</Text>
+                <Text className="text-neutral-600 text-md mb-1">Premium Member</Text>
+                <View className="flex-row items-center">
+                  <View className="w-3 h-3 bg-success rounded-full mr-2" />
+                  <Text className="text-success font-medium text-sm">Verified Account</Text>
+                </View>
+              </View>
+              
+              <TouchableOpacity className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center">
+                <Text className="text-neutral-600 text-lg">✏️</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Settings Categories */}
+        <View className="px-6">
+          {settingsData.map((category, categoryIndex) => (
+            <Animated.View 
+              key={category.category}
+              entering={FadeInUp.delay(200 + categoryIndex * 100).springify()}
+              className="mb-8"
+            >
+              <Card variant="elevated" padding="lg">
+                <Text className="text-xl font-bold text-neutral-800 mb-4">
+                  {category.category}
+                </Text>
+                
+                <View className="gap-1">
+                  {category.items.map((item, itemIndex) => (
+                    <SettingItem 
+                      key={item.id} 
+                      item={item} 
+                      categoryIndex={categoryIndex}
+                      itemIndex={itemIndex}
+                    />
+                  ))}
+                </View>
+              </Card>
+            </Animated.View>
+          ))}
+        </View>
+
+        {/* Account Actions */}
+        <Animated.View 
+          entering={FadeInUp.delay(600).springify()}
+          className="px-6 mb-8"
+        >
+          <Card variant="elevated" padding="lg">
+            <Text className="text-xl font-bold text-neutral-800 mb-6">Account</Text>
+            
+            <View className="gap-4">
+              <Button
+                title="Export Data"
+                onPress={() => {}}
+                variant="outline"
+                size="lg"
+                fullWidth
+                icon={<Text className="text-primary-500 text-lg">📤</Text>}
+              />
+              
+              <Button
+                title="Deactivate Account"
+                onPress={() => {}}
+                variant="ghost"
+                size="lg"
+                fullWidth
+                icon={<Text className="text-warning text-lg">⏸️</Text>}
+              />
+              
+              <Button
+                title="Delete Account"
+                onPress={() => {}}
+                variant="outline"
+                size="lg"
+                fullWidth
+                className="border-error"
+                icon={<Text className="text-error text-lg">🗑️</Text>}
+              />
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* App Info */}
+        <Animated.View 
+          entering={FadeInUp.delay(700).springify()}
+          className="px-6 mb-8"
+        >
+          <Card variant="glass" padding="lg" className="items-center">
+            <View className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-3xl items-center justify-center mb-4">
+              <Text className="text-white text-2xl font-bold">M&S</Text>
+            </View>
+            
+            <Text className="text-xl font-bold text-neutral-800 mb-2">Match & Settle</Text>
+            <Text className="text-neutral-600 text-md mb-1">Version 2.0.1</Text>
+            <Text className="text-neutral-500 text-sm text-center">
+              AI-Powered Student Housing & Roommate Matching
+            </Text>
+            
+            <View className="flex-row gap-4 mt-6">
+              <TouchableOpacity className="bg-neutral-100 px-4 py-2 rounded-full">
+                <Text className="text-neutral-700 font-medium text-sm">Privacy Policy</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity className="bg-neutral-100 px-4 py-2 rounded-full">
+                <Text className="text-neutral-700 font-medium text-sm">Terms of Service</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Bottom Spacer */}
+        <View className="h-8" />
+      </ScrollView>
+    </View>
+  );
+};

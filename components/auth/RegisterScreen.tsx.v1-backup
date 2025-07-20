@@ -1,0 +1,612 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  SafeAreaView,
+  StatusBar,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import Animated, {
+  FadeInUp,
+  FadeInDown,
+  SlideInRight,
+} from 'react-native-reanimated';
+import { useAuthActions } from '../../app/store/hooks';
+import { registerUser } from '../../app/store/slices/authSlice';
+
+interface RegisterScreenProps {
+  onNavigateToLogin: () => void;
+  onRegisterSuccess: () => void;
+}
+
+export const RegisterScreen: React.FC<RegisterScreenProps> = ({
+  onNavigateToLogin,
+  onRegisterSuccess,
+}) => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    cin: '',
+    address: '',
+    dob: '',
+    gender: 'Male' as 'Male' | 'Female' | 'Other',
+    role: 'Student' as 'Student' | 'Landlord' | 'Admin',
+    // Student-specific fields
+    university: '',
+    studyField: '',
+    yearOfStudy: 1,
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const { isLoading, error, dispatch } = useAuthActions();
+
+  const updateFormData = (field: string, value: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      [field]: field === 'yearOfStudy' ? parseInt(value, 10) : value 
+    }));
+  };
+
+  const validateForm = () => {
+    const { firstName, lastName, email, phone, cin, address, dob, password, confirmPassword, role, university, studyField, yearOfStudy } = formData;
+
+    if (!firstName.trim()) {
+      Alert.alert('Error', 'Please enter your first name');
+      return false;
+    }
+
+    if (!lastName.trim()) {
+      Alert.alert('Error', 'Please enter your last name');
+      return false;
+    }
+
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return false;
+    }
+
+    if (!email.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return false;
+    }
+
+    if (!phone.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return false;
+    }
+
+    if (!cin.trim()) {
+      Alert.alert('Error', 'Please enter your national ID (CIN)');
+      return false;
+    }
+
+    if (!address.trim()) {
+      Alert.alert('Error', 'Please enter your address');
+      return false;
+    }
+
+    if (!dob.trim()) {
+      Alert.alert('Error', 'Please enter your date of birth (YYYY-MM-DD)');
+      return false;
+    }
+
+    // Student-specific validation
+    if (role === 'Student') {
+      if (!university.trim()) {
+        Alert.alert('Error', 'University is required for students');
+        return false;
+      }
+
+      if (!studyField.trim()) {
+        Alert.alert('Error', 'Study field is required for students');
+        return false;
+      }
+
+      if (yearOfStudy < 1 || yearOfStudy > 7) {
+        Alert.alert('Error', 'Year of study must be between 1 and 7');
+        return false;
+      }
+    }
+
+    if (!password.trim()) {
+      Alert.alert('Error', 'Please enter a password');
+      return false;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      const registerData: any = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        phone: formData.phone.trim(),
+        cin: formData.cin.trim(),
+        address: formData.address.trim(),
+        dob: formData.dob.trim(),
+        gender: formData.gender,
+        role: formData.role,
+      };
+
+      // Add student-specific fields if role is Student
+      if (formData.role === 'Student') {
+        registerData.university = formData.university.trim();
+        registerData.studyField = formData.studyField.trim();
+        registerData.yearOfStudy = formData.yearOfStudy;
+      }
+
+      const result = await dispatch(registerUser(registerData));
+      if (registerUser.fulfilled.match(result)) {
+        onRegisterSuccess();
+      } else {
+        Alert.alert('Registration Failed', result.payload as string || 'Registration failed');
+      }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      {/* Background elements */}
+      <View className="absolute inset-0">
+        <View className="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-full opacity-30 -mr-16 -mt-16" />
+        <View className="absolute bottom-1/3 left-0 w-24 h-24 bg-blue-100 rounded-full opacity-30 -ml-12" />
+      </View>
+
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        className="flex-1"
+      >
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
+          {/* Header */}
+          <View className="px-6 pt-16">
+            <Animated.Text 
+              entering={FadeInUp.delay(400).duration(600)}
+              className="text-3xl font-bold text-gray-800 mb-2"
+            >
+              Join UniNest
+            </Animated.Text>
+            
+            <Animated.Text 
+              entering={FadeInUp.delay(600).duration(600)}
+              className="text-lg text-gray-600 mb-8"
+            >
+              Create your account with AI-powered matching for perfect housing and roommates
+            </Animated.Text>
+          </View>
+
+          {/* Registration Form */}
+          <View className="flex-1 px-6">
+            <Animated.View 
+              entering={SlideInRight.delay(800).duration(600)}
+              className="space-y-4"
+            >
+              {/* First Name */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">First Name</Text>
+                <TextInput
+                  value={formData.firstName}
+                  onChangeText={(value) => updateFormData('firstName', value)}
+                  placeholder="Enter your first name"
+                  placeholderTextColor="#9CA3AF"
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                />
+              </View>
+
+              {/* Last Name */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Last Name</Text>
+                <TextInput
+                  value={formData.lastName}
+                  onChangeText={(value) => updateFormData('lastName', value)}
+                  placeholder="Enter your last name"
+                  placeholderTextColor="#9CA3AF"
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                />
+              </View>
+
+              {/* Email */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Email</Text>
+                <TextInput
+                  value={formData.email}
+                  onChangeText={(value) => updateFormData('email', value)}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                />
+              </View>
+
+              {/* Phone */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Phone Number</Text>
+                <TextInput
+                  value={formData.phone}
+                  onChangeText={(value) => updateFormData('phone', value)}
+                  placeholder="Enter your phone number"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="phone-pad"
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                />
+              </View>
+
+              {/* CIN */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">National ID (CIN)</Text>
+                <TextInput
+                  value={formData.cin}
+                  onChangeText={(value) => updateFormData('cin', value)}
+                  placeholder="Enter your CIN"
+                  placeholderTextColor="#9CA3AF"
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                />
+              </View>
+
+              {/* Address */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Address</Text>
+                <TextInput
+                  value={formData.address}
+                  onChangeText={(value) => updateFormData('address', value)}
+                  placeholder="Enter your address"
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  numberOfLines={2}
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                    textAlignVertical: 'top',
+                  }}
+                />
+              </View>
+
+              {/* Date of Birth */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Date of Birth</Text>
+                <TextInput
+                  value={formData.dob}
+                  onChangeText={(value) => updateFormData('dob', value)}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#9CA3AF"
+                  className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                  style={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 2,
+                  }}
+                />
+              </View>
+
+              {/* Gender Selection */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Gender</Text>
+                <View className="flex-row space-x-3">
+                  <TouchableOpacity
+                    onPress={() => updateFormData('gender', 'Male')}
+                    className={`flex-1 py-4 px-6 rounded-2xl border-2 ${
+                      formData.gender === 'Male' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      formData.gender === 'Male' ? 'text-purple-600' : 'text-gray-600'
+                    }`}>
+                      Male
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    onPress={() => updateFormData('gender', 'Female')}
+                    className={`flex-1 py-4 px-6 rounded-2xl border-2 ${
+                      formData.gender === 'Female' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      formData.gender === 'Female' ? 'text-purple-600' : 'text-gray-600'
+                    }`}>
+                      Female
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => updateFormData('gender', 'Other')}
+                    className={`flex-1 py-4 px-6 rounded-2xl border-2 ${
+                      formData.gender === 'Other' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      formData.gender === 'Other' ? 'text-purple-600' : 'text-gray-600'
+                    }`}>
+                      Other
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Role Selection */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">I am a</Text>
+                <View className="flex-row space-x-4">
+                  <TouchableOpacity
+                    onPress={() => updateFormData('role', 'Student')}
+                    className={`flex-1 py-4 px-6 rounded-2xl border-2 ${
+                      formData.role === 'Student' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      formData.role === 'Student' ? 'text-purple-600' : 'text-gray-600'
+                    }`}>
+                      Student
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    onPress={() => updateFormData('role', 'Landlord')}
+                    className={`flex-1 py-4 px-6 rounded-2xl border-2 ${
+                      formData.role === 'Landlord' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      formData.role === 'Landlord' ? 'text-purple-600' : 'text-gray-600'
+                    }`}>
+                      Landlord
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Student-specific fields */}
+              {formData.role === 'Student' && (
+                <>
+                  {/* University */}
+                  <View>
+                    <Text className="text-gray-700 font-medium mb-2">University <Text className="text-red-500">*</Text></Text>
+                    <TextInput
+                      value={formData.university}
+                      onChangeText={(value) => updateFormData('university', value)}
+                      placeholder="Enter your university"
+                      placeholderTextColor="#9CA3AF"
+                      className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                      style={{
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 2,
+                        elevation: 2,
+                      }}
+                    />
+                  </View>
+
+                  {/* Study Field */}
+                  <View>
+                    <Text className="text-gray-700 font-medium mb-2">Field of Study <Text className="text-red-500">*</Text></Text>
+                    <TextInput
+                      value={formData.studyField}
+                      onChangeText={(value) => updateFormData('studyField', value)}
+                      placeholder="e.g., Computer Science, Engineering, Medicine"
+                      placeholderTextColor="#9CA3AF"
+                      className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg"
+                      style={{
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 2,
+                        elevation: 2,
+                      }}
+                    />
+                  </View>
+
+                  {/* Year of Study */}
+                  <View>
+                    <Text className="text-gray-700 font-medium mb-2">Year of Study <Text className="text-red-500">*</Text></Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {[1, 2, 3, 4, 5, 6, 7].map((year) => (
+                        <TouchableOpacity
+                          key={year}
+                          onPress={() => updateFormData('yearOfStudy', year.toString())}
+                          className={`py-3 px-6 rounded-2xl border-2 ${
+                            formData.yearOfStudy === year ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <Text className={`font-medium ${
+                            formData.yearOfStudy === year ? 'text-purple-600' : 'text-gray-600'
+                          }`}>
+                            Year {year}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {/* Password */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Password</Text>
+                <View className="relative">
+                  <TextInput
+                    value={formData.password}
+                    onChangeText={(value) => updateFormData('password', value)}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showPassword}
+                    className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 pr-12 text-gray-800 text-lg"
+                    style={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.05,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-4"
+                  >
+                    <Text className="text-gray-500 text-lg">
+                      {showPassword ? '🙈' : '👁️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password */}
+              <View>
+                <Text className="text-gray-700 font-medium mb-2">Confirm Password</Text>
+                <View className="relative">
+                  <TextInput
+                    value={formData.confirmPassword}
+                    onChangeText={(value) => updateFormData('confirmPassword', value)}
+                    placeholder="Confirm your password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showConfirmPassword}
+                    className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 pr-12 text-gray-800 text-lg"
+                    style={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.05,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-4"
+                  >
+                    <Text className="text-gray-500 text-lg">
+                      {showConfirmPassword ? '🙈' : '👁️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Error Message */}
+              {error && (
+                <Animated.View entering={FadeInUp.duration(300)}>
+                  <Text className="text-red-500 text-center bg-red-50 py-3 px-4 rounded-xl">
+                    {error}
+                  </Text>
+                </Animated.View>
+              )}
+            </Animated.View>
+          </View>
+
+          {/* Bottom Section */}
+          <View className="px-6 pb-8 space-y-4">
+            {/* Register Button */}
+            <Animated.View entering={FadeInDown.delay(1000).duration(600)}>
+              <TouchableOpacity
+                onPress={handleRegister}
+                disabled={isLoading}
+                className={`bg-purple-500 rounded-2xl py-4 px-8 ${
+                  isLoading ? 'opacity-70' : ''
+                }`}
+                style={{
+                  shadowColor: '#6C63FF',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+              >
+                <Text className="text-white text-lg font-bold text-center">
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Login Link */}
+            <Animated.View 
+              entering={FadeInDown.delay(1200).duration(600)}
+              className="flex-row justify-center items-center"
+            >
+              <Text className="text-gray-600">Already have an account? </Text>
+              <TouchableOpacity onPress={onNavigateToLogin}>
+                <Text className="text-purple-500 font-bold">Sign In</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+export default RegisterScreen;

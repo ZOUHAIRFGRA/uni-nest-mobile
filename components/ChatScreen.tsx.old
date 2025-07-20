@@ -1,0 +1,255 @@
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import Animated, { FadeInUp, FadeInLeft, FadeInRight } from 'react-native-reanimated';
+import { Card } from './ui/Card';
+
+// Sample chat data
+const sampleMessages = [
+  {
+    id: '1',
+    senderId: 'other',
+    message: 'Hi Sarah! I saw your profile and I think we could be great roommates!',
+    timestamp: '10:30 AM',
+    isMe: false
+  },
+  {
+    id: '2',
+    senderId: 'me',
+    message: 'Hi Ahmed! Thanks for reaching out. I\'d love to learn more about your preferences.',
+    timestamp: '10:32 AM',
+    isMe: true
+  },
+  {
+    id: '3',
+    senderId: 'other',
+    message: 'I\'m looking for a quiet place to study, preferably near Hassan II University. What about you?',
+    timestamp: '10:35 AM',
+    isMe: false
+  },
+  {
+    id: '4',
+    senderId: 'me',
+    message: 'Perfect! I\'m also at Hassan II, Computer Science program. I prefer a clean, organized space.',
+    timestamp: '10:37 AM',
+    isMe: true
+  },
+  {
+    id: '5',
+    senderId: 'other',
+    message: 'That sounds ideal! Would you be interested in viewing some properties together this weekend?',
+    timestamp: '10:40 AM',
+    isMe: false
+  }
+];
+
+const otherUser = {
+  name: 'Ahmed Benali',
+  avatar: 'AB',
+  university: 'Hassan II University',
+  year: 'Third Year',
+  isOnline: true,
+  lastSeen: 'Active now'
+};
+
+export const ChatScreen = () => {
+  const [newMessage, setNewMessage] = useState('');
+  const [messages] = useState(sampleMessages);
+
+  const sendMessage = () => {
+    if (newMessage.trim()) {
+      console.log('Sending message:', newMessage);
+      setNewMessage('');
+    }
+  };
+
+  const MessageBubble = ({ message, isMe, timestamp }: any) => (
+    <Animated.View 
+      entering={isMe ? FadeInRight.delay(100).springify() : FadeInLeft.delay(100).springify()}
+      className={`mb-4 ${isMe ? 'items-end' : 'items-start'}`}
+    >
+      <View className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+        isMe 
+          ? 'bg-primary-500 rounded-tr-md' 
+          : 'bg-white border border-neutral-200 rounded-tl-md'
+      } shadow-ios`}>
+        <Text className={`text-md leading-5 ${
+          isMe ? 'text-white' : 'text-neutral-800'
+        }`}>
+          {message}
+        </Text>
+      </View>
+      <Text className={`text-xs text-neutral-500 mt-1 ${isMe ? 'mr-2' : 'ml-2'}`}>
+        {timestamp}
+      </Text>
+    </Animated.View>
+  );
+
+  return (
+    <KeyboardAvoidingView 
+      className="flex-1 bg-neutral-50"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <StatusBar style="dark" />
+      
+      {/* Header */}
+      <Animated.View 
+        entering={FadeInUp.delay(100).springify()}
+        className="pt-16 pb-4 px-6 bg-white border-b border-neutral-200/50 shadow-ios"
+      >
+        <View className="flex-row items-center">
+          <TouchableOpacity className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center mr-4">
+            <Text className="text-neutral-600 text-lg">←</Text>
+          </TouchableOpacity>
+          
+          <View className="flex-row items-center flex-1">
+            <View className="relative mr-3">
+              <View className="w-12 h-12 bg-secondary-500 rounded-full items-center justify-center">
+                <Text className="text-white text-lg font-bold">{otherUser.avatar}</Text>
+              </View>
+              {otherUser.isOnline && (
+                <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-white" />
+              )}
+            </View>
+            
+            <View className="flex-1">
+              <Text className="text-xl font-bold text-neutral-800">{otherUser.name}</Text>
+              <Text className="text-sm text-neutral-500">{otherUser.lastSeen}</Text>
+            </View>
+          </View>
+          
+          <View className="flex-row gap-2">
+            <TouchableOpacity className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center">
+              <Text className="text-neutral-600 text-lg">📞</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center">
+              <Text className="text-neutral-600 text-lg">⋯</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Messages */}
+      <ScrollView 
+        className="flex-1 px-6 pt-6"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Chat Info Card */}
+        <Animated.View entering={FadeInUp.delay(200).springify()}>
+          <Card variant="glass" padding="lg" className="mb-6">
+            <View className="items-center">
+              <View className="w-16 h-16 bg-secondary-500 rounded-full items-center justify-center mb-3">
+                <Text className="text-white text-2xl font-bold">{otherUser.avatar}</Text>
+              </View>
+              <Text className="text-xl font-bold text-neutral-800 mb-1">{otherUser.name}</Text>
+              <Text className="text-neutral-600 text-md mb-1">{otherUser.university}</Text>
+              <Text className="text-neutral-500 text-sm mb-4">{otherUser.year}</Text>
+              
+              <View className="flex-row gap-3">
+                <TouchableOpacity className="bg-primary-100 px-4 py-2 rounded-full">
+                  <Text className="text-primary-600 font-medium text-sm">View Profile</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity className="bg-secondary-100 px-4 py-2 rounded-full">
+                  <Text className="text-secondary-600 font-medium text-sm">Compatibility: 94%</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Messages */}
+        <View className="mb-6">
+          {messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message.message}
+              isMe={message.isMe}
+              timestamp={message.timestamp}
+            />
+          ))}
+        </View>
+
+        {/* Typing Indicator */}
+        <Animated.View 
+          entering={FadeInLeft.delay(300).springify()}
+          className="items-start mb-6"
+        >
+          <View className="bg-white border border-neutral-200 px-4 py-3 rounded-2xl rounded-tl-md shadow-ios">
+            <View className="flex-row items-center">
+              <View className="flex-row gap-1 mr-2">
+                <View className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" />
+                <View className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" />
+                <View className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" />
+              </View>
+              <Text className="text-neutral-500 text-sm">Ahmed is typing...</Text>
+            </View>
+          </View>
+        </Animated.View>
+      </ScrollView>
+
+      {/* Quick Responses */}
+      <Animated.View 
+        entering={FadeInUp.delay(400).springify()}
+        className="px-6 mb-4"
+      >
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          className="flex-row gap-3"
+        >
+          {[
+            '👍 Sounds good!',
+            '📅 When works for you?',
+            '📍 Share location?',
+            '💰 What about budget?'
+          ].map((response, index) => (
+            <TouchableOpacity
+              key={index}
+              className="bg-white border border-neutral-200 px-4 py-2 rounded-full shadow-ios"
+              onPress={() => setNewMessage(response.split(' ').slice(1).join(' '))}
+            >
+              <Text className="text-neutral-700 text-sm">{response}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Animated.View>
+
+      {/* Message Input */}
+      <Animated.View 
+        entering={FadeInUp.delay(500).springify()}
+        className="px-6 pb-8 bg-white border-t border-neutral-200/50"
+      >
+        <View className="flex-row items-end pt-4 gap-3">
+          <TouchableOpacity className="w-10 h-10 bg-neutral-100 rounded-2xl items-center justify-center">
+            <Text className="text-neutral-600 text-lg">+</Text>
+          </TouchableOpacity>
+          
+          <View className="flex-1 bg-neutral-100 rounded-2xl px-4 py-3 max-h-32">
+            <TextInput
+              placeholder="Type a message..."
+              value={newMessage}
+              onChangeText={setNewMessage}
+              multiline
+              className="text-md text-neutral-800 min-h-[20px]"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+          
+          <TouchableOpacity 
+            className={`w-10 h-10 rounded-2xl items-center justify-center ${
+              newMessage.trim() ? 'bg-primary-500' : 'bg-neutral-300'
+            }`}
+            onPress={sendMessage}
+            disabled={!newMessage.trim()}
+          >
+            <Text className={`text-lg ${newMessage.trim() ? 'text-white' : 'text-neutral-500'}`}>
+              ➤
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </KeyboardAvoidingView>
+  );
+};

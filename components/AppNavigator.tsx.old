@@ -1,0 +1,186 @@
+// Simple App Navigator - DEMO ONLY
+// This is a simplified 2-tab navigator for demonstration purposes.
+// The main app uses MainAppNavigator.tsx which includes authentication flow.
+//
+// This navigator shows:
+// - Home tab with HomeScreen
+// - Register tab with a simple registration form
+// - Smooth animations between tabs
+//
+// Note: This is not connected to the authentication system.
+// For the full app experience, see MainAppNavigator.tsx
+
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, TextInput, Alert } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  interpolate
+} from 'react-native-reanimated';
+import { HomeScreen } from './HomeScreen';
+
+// Simple Register Component for demo purposes
+const SimpleRegisterScreen = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+
+  const handleRegister = () => {
+    if (!email || !password || !name) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    Alert.alert('Success', 'Registration demo completed!');
+  };
+
+  return (
+    <View className="flex-1 justify-center px-6 bg-gray-50">
+      <Text className="text-3xl font-bold text-center mb-8 text-gray-800">
+        Create Account
+      </Text>
+      
+      <View className="space-y-4">
+        <TextInput
+          placeholder="Full Name"
+          value={name}
+          onChangeText={setName}
+          className="bg-white px-4 py-3 rounded-xl border border-gray-200"
+        />
+        
+        <TextInput
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          className="bg-white px-4 py-3 rounded-xl border border-gray-200"
+        />
+        
+        <TextInput
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          className="bg-white px-4 py-3 rounded-xl border border-gray-200"
+        />
+        
+        <TouchableOpacity
+          onPress={handleRegister}
+          className="bg-blue-500 py-4 rounded-xl mt-6"
+        >
+          <Text className="text-white text-center font-semibold text-lg">
+            Register
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+export const AppNavigator = () => {
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'register'>('home');
+  
+  // Animation values for tab indicator
+  const homeScale = useSharedValue(1);
+  const registerScale = useSharedValue(0.8);
+  const indicatorPosition = useSharedValue(0);
+
+  const handleTabPress = (screen: 'home' | 'register') => {
+    setCurrentScreen(screen);
+    
+    if (screen === 'home') {
+      homeScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+      registerScale.value = withSpring(0.8, { damping: 15, stiffness: 400 });
+      indicatorPosition.value = withSpring(0, { damping: 20, stiffness: 300 });
+    } else {
+      homeScale.value = withSpring(0.8, { damping: 15, stiffness: 400 });
+      registerScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+      indicatorPosition.value = withSpring(1, { damping: 20, stiffness: 300 });
+    }
+  };
+
+  const homeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: homeScale.value }],
+  }));
+
+  const registerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: registerScale.value }],
+  }));
+
+  const indicatorAnimatedStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(indicatorPosition.value, [0, 1], [0, 150]);
+    
+    return {
+      transform: [{ translateX }],
+    };
+  });
+
+  return (
+    <SafeAreaView className="flex-1 bg-neutral-50">
+      {/* Screen Content */}
+      <View className="flex-1">
+        {currentScreen === 'home' ? <HomeScreen /> : <SimpleRegisterScreen />}
+      </View>
+
+      {/* Bottom Navigation */}
+      <View className="bg-white/95 backdrop-blur-xl shadow-elevated border-t border-neutral-200/50">
+        <View className="flex-row mx-4 my-3 relative">
+          {/* Animated Background Indicator */}
+          <Animated.View
+            style={indicatorAnimatedStyle}
+            className="absolute top-0 w-36 h-full bg-primary-500 rounded-2xl shadow-ios"
+          />
+          
+          {/* Home Tab */}
+          <AnimatedTouchableOpacity
+            style={homeAnimatedStyle}
+            className="flex-1 py-4 items-center justify-center z-10"
+            onPress={() => handleTabPress('home')}
+            activeOpacity={0.8}
+          >
+            <View className="items-center">
+              <Text className={`text-2xl mb-1 ${
+                currentScreen === 'home' ? '' : 'opacity-60'
+              }`}>
+                🏠
+              </Text>
+              <Text className={`font-semibold text-sm ${
+                currentScreen === 'home' 
+                  ? 'text-white' 
+                  : 'text-neutral-600'
+              }`}>
+                Home
+              </Text>
+            </View>
+          </AnimatedTouchableOpacity>
+          
+          {/* Register Tab */}
+          <AnimatedTouchableOpacity
+            style={registerAnimatedStyle}
+            className="flex-1 py-4 items-center justify-center z-10"
+            onPress={() => handleTabPress('register')}
+            activeOpacity={0.8}
+          >
+            <View className="items-center">
+              <Text className={`text-2xl mb-1 ${
+                currentScreen === 'register' ? '' : 'opacity-60'
+              }`}>
+                📝
+              </Text>
+              <Text className={`font-semibold text-sm ${
+                currentScreen === 'register' 
+                  ? 'text-white' 
+                  : 'text-neutral-600'
+              }`}>
+                Register
+              </Text>
+            </View>
+          </AnimatedTouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+};
