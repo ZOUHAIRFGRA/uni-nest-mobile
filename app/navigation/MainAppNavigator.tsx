@@ -8,6 +8,7 @@ import OnboardingScreen from '../screens/auth/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import { createStackNavigator } from '@react-navigation/stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Placeholder screens for main app
 function DashboardScreen() {
@@ -59,11 +60,13 @@ function MainTabs() {
 const isAuthenticated = false; // Placeholder
 
 const MainAppNavigator: React.FC = () => {
-  return (
+                return (
     <GluestackUIProvider>
-      <NavigationContainer>
-        {isAuthenticated ? <MainTabs /> : <AuthNavigator />}
-      </NavigationContainer>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'right', 'left', 'bottom']}>
+        <NavigationContainer>
+          {isAuthenticated ? <MainTabs /> : <AuthNavigator />}
+        </NavigationContainer>
+      </SafeAreaView>
     </GluestackUIProvider>
   );
 };

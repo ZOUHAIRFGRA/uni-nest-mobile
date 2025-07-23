@@ -261,6 +261,23 @@ export interface RegisterData {
   studyField?: string;
   yearOfStudy?: number;
   profileImage?: File;
+  preferences?: {
+    budget: { min: number; max: number };
+    preferredAreas: string[];
+    maxCommuteTime: number;
+    amenities: { [key: string]: boolean };
+    roomType: string;
+  };
+  lifestyle?: {
+    smokingHabits: string;
+    alcoholConsumption: string;
+    petFriendly: boolean;
+    sleepSchedule: string;
+    socialLevel: string;
+    cleanlinessLevel: string;
+    noiseLevel: string;
+    guestPolicy: string;
+  };
 }
 
 export interface AuthState {
