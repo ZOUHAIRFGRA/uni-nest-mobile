@@ -119,7 +119,12 @@ export class AuthService {
    */
   async getCurrentUser(): Promise<ApiResponse<User>> {
     try {
-      return await apiClient.get<User>(API_ENDPOINTS.USERS.ME);
+      const user = await apiClient.get<User>(API_ENDPOINTS.USERS.ME);
+      return {
+        success: true,
+        data: user,
+        message: 'User retrieved successfully'
+      };
     } catch (error) {
       throw error;
     }
@@ -215,14 +220,18 @@ export class AuthService {
         { token }
       );
 
-      if (response.success && response.data?.token) {
+      if (response.user && response.token) {
         // Save token and user data to storage
-        await apiClient.saveToken(response.data.token);
-        await StorageService.saveAuthToken(response.data.token);
-        await StorageService.saveUserData(response.data.user);
+        await apiClient.saveToken(response.token);
+        await StorageService.saveAuthToken(response.token);
+        await StorageService.saveUserData(response.user);
       }
 
-      return response;
+      return {
+        success: true,
+        data: response,
+        message: 'Social login successful'
+      };
     } catch (error) {
       throw error;
     }
@@ -233,10 +242,16 @@ export class AuthService {
    */
   async updatePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<null>> {
     try {
-      return await apiClient.put<null>('/auth/password', {
+      await apiClient.put<null>('/auth/password', {
         currentPassword,
         newPassword
       });
+      
+      return {
+        success: true,
+        data: null,
+        message: 'Password updated successfully'
+      };
     } catch (error) {
       throw error;
     }
@@ -247,16 +262,18 @@ export class AuthService {
    */
   async deleteAccount(password: string): Promise<ApiResponse<null>> {
     try {
-      const response = await apiClient.delete<null>('/auth/account');
+      await apiClient.delete<null>('/auth/account');
       
       // Clear token and user data after successful account deletion
-      if (response.success) {
-        await apiClient.clearToken();
-        await StorageService.removeAuthToken();
-        await StorageService.removeUserData();
-      }
+      await apiClient.clearToken();
+      await StorageService.removeAuthToken();
+      await StorageService.removeUserData();
       
-      return response;
+      return {
+        success: true,
+        data: null,
+        message: 'Account deleted successfully'
+      };
     } catch (error) {
       throw error;
     }

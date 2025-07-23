@@ -89,7 +89,7 @@ class ApiClient {
   }
 
   // Handle API response
-  private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  private async handleResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
 
@@ -130,18 +130,15 @@ class ApiClient {
       }
     }
 
-    return {
-      success: true,
-      data,
-      message: data?.message || 'Success'
-    };
+    // Return data directly instead of wrapping in ApiResponse
+    return data;
   }
 
   // Generic request method
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  ): Promise<T> {
     try {
       const url = `${this.baseURL}${endpoint}`;
       
@@ -237,7 +234,7 @@ class ApiClient {
   }
 
   // HTTP methods
-  async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     let url = endpoint;
     if (params) {
       const searchParams = new URLSearchParams();
@@ -255,28 +252,28 @@ class ApiClient {
     return this.request<T>(url, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async patch<T>(endpoint: string, data?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
@@ -285,7 +282,7 @@ class ApiClient {
     endpoint: string, 
     file: any, 
     additionalData?: Record<string, any>
-  ): Promise<ApiResponse<T>> {
+  ): Promise<T> {
     try {
       const formData = new FormData();
       
@@ -330,7 +327,19 @@ export async function getPaginatedData<T>(
   endpoint: string,
   params?: Record<string, any>
 ): Promise<PaginatedResponse<T>> {
-  return apiClient.get<T[]>(endpoint, params) as Promise<PaginatedResponse<T>>;
+  const response = await apiClient.get<T[]>(endpoint, params);
+  // Transform the response to match PaginatedResponse format
+  return {
+    success: true,
+    data: response as T[],
+    pagination: {
+      currentPage: 1,
+      totalPages: 1,
+      totalItems: (response as T[]).length,
+      itemsPerPage: 10
+    },
+    message: 'Success'
+  };
 }
 
 // Helper function to handle file uploads
@@ -338,7 +347,7 @@ export async function uploadFile<T>(
   endpoint: string,
   file: any,
   onProgress?: (progress: number) => void
-): Promise<ApiResponse<T>> {
+): Promise<T> {
   // Note: For upload progress, you might want to use a library like react-native-blob-util
   return apiClient.upload<T>(endpoint, file);
 }
