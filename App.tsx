@@ -1,8 +1,7 @@
 import React from 'react';
-import "@/global.css";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { ReduxProvider } from 'app/store/ReduxProvider';
-import { MainAppNavigator } from 'app/navigation/MainAppNavigator';
+import MainAppNavigator from 'app/navigation/MainAppNavigator';
 import './global.css';
 
 export default function App() {
