@@ -1,3 +1,3 @@
 // Navigation exports
-export { MainAppNavigator } from './MainAppNavigator';
+export { default as MainAppNavigator } from './MainAppNavigator';
 export { default as MainAppNavigatorDefault } from './MainAppNavigator';

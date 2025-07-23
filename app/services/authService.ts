@@ -149,13 +149,13 @@ export class AuthService {
     try {
       const response = await apiClient.post('/auth/refresh');
       
-      if (response.data && response.data.token) {
+      if ((response as any).data && (response as any).data.token) {
         // Save the new token
-        await apiClient.saveToken(response.data.token);
+        await apiClient.saveToken((response as any).data.token);
         
         return {
           success: true,
-          data: response.data,
+          data: (response as any).data,
           message: 'Token refreshed successfully'
         };
       }
