@@ -81,6 +81,10 @@ class ApiClient {
       headers.Authorization = `Bearer ${token}`;
     }
 
+    // Add no-cache headers to prevent 304 responses
+    headers['Cache-Control'] = 'no-cache';
+    headers['Pragma'] = 'no-cache';
+
     if (customHeaders) {
       Object.assign(headers, customHeaders);
     }
@@ -90,6 +94,13 @@ class ApiClient {
 
   // Handle API response
   private async handleResponse<T>(response: Response): Promise<T> {
+    // Handle 304 Not Modified: return null or a special value
+    if (response.status === 304) {
+      console.log('API Response: 304 Not Modified');
+      // You can return null, undefined, or a custom object
+      // Here, we return null to indicate no new data
+      return null as any;
+    }
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
 

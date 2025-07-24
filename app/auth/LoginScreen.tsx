@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, useColorScheme, TouchableOpacity, KeyboardAvoidingView, ScrollView  } from 'react-native';
+import { Animated, Easing, Platform, useColorScheme, TouchableOpacity, KeyboardAvoidingView, ScrollView, StyleSheet  } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Center } from '../../../components/ui/center';
-import { Button, ButtonText } from '../../../components/ui/button';
-import { VStack } from '../../../components/ui/vstack';
-import { Text } from '../../../components/ui/text';
-import { Input, InputField } from '../../../components/ui/input';
-import { Box } from '../../../components/ui/box';
-import { Link, LinkText } from '../../../components/ui/link';
+import { Center } from '../../components/ui/center';
+import { Button, ButtonText } from '../../components/ui/button';
+import { VStack } from '../../components/ui/vstack';
+import { Text } from '../../components/ui/text';
+import { Input, InputField } from '../../components/ui/input';
+import { Box } from '../../components/ui/box';
+import { Link, LinkText } from '../../components/ui/link';
 import { useNavigation } from '@react-navigation/native';
-import { authService } from '../../services/authService';
+import { authService } from '../services/authService';
 import { AlertCircle, Eye, EyeOff, Lock, X } from 'lucide-react-native';
-import {  getTheme } from '../../utils/theme';
+import {  getTheme } from '../utils/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen() {
@@ -125,17 +125,16 @@ export default function LoginScreen() {
             >
               {/* Shimmer overlay */}
               <Animated.View
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: '100%',
-                  height: '100%',
-                  opacity: 0.12,
-                  transform: [{ translateX: shimmerTranslate }],
-                  backgroundColor: currentTheme.colors.background,
-                  zIndex: currentTheme.zIndex.dropdown,
-                }}
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  {
+                    opacity: 0.12,
+                    transform: [{ translateX: shimmerTranslate }],
+                    backgroundColor: currentTheme.colors.background,
+                    zIndex: currentTheme.zIndex.dropdown,
+                    borderRadius: currentTheme.borderRadius.card,
+                  },
+                ]}
               />
               <Box
                 style={{
@@ -320,6 +319,8 @@ export default function LoginScreen() {
                     action="primary"
                     size="lg"
                     style={{
+                      borderRadius: currentTheme.borderRadius.button,
+                      backgroundColor: currentTheme.colors.primary,
                       ...currentTheme.shadows.medium,
                       shadowOpacity: 0.2,
                       shadowRadius: 4,
@@ -345,7 +346,7 @@ export default function LoginScreen() {
                     >
                       {loading ? 'Logging in...' : 'Log In'}
                     </ButtonText>
-        </Button>
+                  </Button>
                 </Animated.View>
                 <LinearGradient
                   colors={[currentTheme.colors.border, `${currentTheme.colors.border}00`]}

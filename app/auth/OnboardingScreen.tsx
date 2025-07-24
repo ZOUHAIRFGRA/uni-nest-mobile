@@ -1,14 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, useColorScheme } from 'react-native';
+import { Animated, Easing, useColorScheme, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Center } from '../../../components/ui/center';
-import { Button, ButtonText } from '../../../components/ui/button';
-import { VStack } from '../../../components/ui/vstack';
-import { Text } from '../../../components/ui/text';
-import { Box } from '../../../components/ui/box';
-import { getTheme } from '../../utils/theme';
+import { Center } from '../../components/ui/center';
+import { Button, ButtonText } from '../../components/ui/button';
+import { VStack } from '../../components/ui/vstack';
+import { Text } from '../../components/ui/text';
+import { Box } from '../../components/ui/box';
+import { getTheme } from '../utils/theme';
 
 export default function OnboardingScreen() {
   const navigation = useNavigation<any>();
@@ -93,17 +93,16 @@ export default function OnboardingScreen() {
           >
             {/* Shimmer overlay */}
             <Animated.View
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0.12,
-                transform: [{ translateX: shimmerTranslate }],
-                backgroundColor: currentTheme.colors.background,
-                zIndex: currentTheme.zIndex.dropdown,
-              }}
+              style={[
+                StyleSheet.absoluteFillObject,
+                {
+                  opacity: 0.12,
+                  transform: [{ translateX: shimmerTranslate }],
+                  backgroundColor: currentTheme.colors.background,
+                  zIndex: currentTheme.zIndex.dropdown,
+                  borderRadius: currentTheme.borderRadius.card,
+                },
+              ]}
             />
             {/* Icon Container */}
             <Animated.View

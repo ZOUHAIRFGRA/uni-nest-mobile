@@ -5,8 +5,8 @@ import type {  Chat, Message } from '../types';
 export const chatService = {
   // Get all chats for the current user
   getChats: async (): Promise<Chat[]> => {
-    const response = await apiClient.get<Chat[]>('/chats');
-    return response.data || []; // Ensure response.data is an array, or default to empty array
+    const response = await apiClient.get<{ chats: Chat[] }>('/chats');
+    return response.data?.chats || response.data || [];
   },
 
   // Get a specific chat by ID
@@ -17,10 +17,10 @@ export const chatService = {
 
   // Get messages for a specific chat
   getMessages: async (chatId: string, page = 1, limit = 50): Promise<Message[]> => {
-    const response = await apiClient.get<Message[]>(`/chats/${chatId}/messages`, {
+    const response = await apiClient.get<{ messages: Message[] }>(`/chats/${chatId}/messages`, {
       params: { page, limit }
     });
-    return response.data || [];
+    return response.data?.messages || response.data || [];
   },
 
   // Send a message in a chat
