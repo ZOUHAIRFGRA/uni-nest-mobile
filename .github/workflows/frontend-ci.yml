@@ -1,0 +1,86 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'my-expo-app/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'my-expo-app/**'
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'my-expo-app/package-lock.json'
+        
+    - name: Install dependencies
+      working-directory: ./my-expo-app
+      run: npm ci
+      
+    - name: Run ESLint
+      working-directory: ./my-expo-app
+      run: npm run lint
+      
+    - name: Run TypeScript check
+      working-directory: ./my-expo-app
+      run: npx tsc --noEmit
+      
+    - name: Check formatting
+      working-directory: ./my-expo-app
+      run: npm run format:check
+      
+    - name: Run tests
+      working-directory: ./my-expo-app
+      run: npm test
+      
+    - name: Build check
+      working-directory: ./my-expo-app
+      run: npx expo export --platform web
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run security audit
+      working-directory: ./my-expo-app
+      run: npm audit --audit-level moderate
+      
+    - name: Run dependency check
+      working-directory: ./my-expo-app
+      run: npx npm-check-updates --target minor
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Deploy to staging
+      run: echo "Deploy to staging environment"
+      # Add your staging deployment logic here
+      
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, security-scan]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to production
+      run: echo "Deploy to production environment"
+      # Add your production deployment logic here 

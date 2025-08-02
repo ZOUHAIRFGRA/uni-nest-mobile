@@ -1,0 +1,40 @@
+module.exports = {
+  extends: ['@commitlint/config-conventional'],
+  rules: {
+    'type-enum': [
+      2,
+      'always',
+      [
+        'feat',
+        'fix',
+        'docs',
+        'style',
+        'refactor',
+        'test',
+        'chore',
+        'perf',
+        'ci',
+        'build',
+        'revert',
+      ],
+    ],
+    'scope-enum': [
+      2,
+      'always',
+      [
+        'auth',
+        'property',
+        'booking',
+        'chat',
+        'payment',
+        'ui',
+        'api',
+        'store',
+        'nav',
+        'utils',
+        'deps',
+        'ci',
+      ],
+    ],
+  },
+}; 
