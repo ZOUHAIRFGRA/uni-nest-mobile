@@ -318,6 +318,20 @@ export class AuthService {
   }
 
   /**
+   * Update preferences and lifestyle on backend and local storage
+   */
+  async updatePreferencesOnBackend(preferences: Record<string, any>, lifestyle: Record<string, any>): Promise<void> {
+    try {
+      const response = await apiClient.put(API_ENDPOINTS.AUTH.UPDATE_PROFILE, { preferences, lifestyle });
+      // Optionally update local storage
+      await this.saveUserPreferences({ ...preferences, ...lifestyle });
+    } catch (error) {
+      console.error('Error updating preferences on backend:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Initialize auth state from storage on app start
    */
   /**

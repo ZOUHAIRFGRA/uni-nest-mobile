@@ -6,8 +6,8 @@ export const bookingService = {
   // Get all bookings for the current user
   getBookings: async (): Promise<Booking[]> => {
     const response = await apiClient.get<{ success: boolean; data: { bookings: Booking[] } }>('/bookings/user');
-    if (response.data?.success && response.data?.data?.bookings) {
-      return response.data.data.bookings;
+    if (response?.success && response?.data?.bookings) {
+      return response.data.bookings;
     }
     return [];
   },
@@ -15,8 +15,8 @@ export const bookingService = {
   // Get a specific booking by ID
   getBookingById: async (bookingId: string): Promise<Booking> => {
     const response = await apiClient.get<{ success: boolean; data: Booking }>(`/bookings/${bookingId}`);
-    if (response.data?.success && response.data?.data) {
-      return response.data.data;
+    if (response?.success && response?.data) {
+      return response.data;
     }
     throw new Error('Booking not found');
   },
@@ -31,8 +31,8 @@ export const bookingService = {
     roommates?: string[];
   }): Promise<Booking> => {
     const response = await apiClient.post<{ success: boolean; data: Booking }>('/bookings', bookingData);
-    if (response.data?.success && response.data?.data) {
-      return response.data.data;
+    if (response?.success && response?.data) {
+      return response.data;
     }
     throw new Error('Failed to create booking');
   },
@@ -42,8 +42,8 @@ export const bookingService = {
     const response = await apiClient.patch<{ success: boolean; data: Booking }>(`/bookings/${bookingId}/status`, {
       status
     });
-    if (response.data?.success && response.data?.data) {
-      return response.data.data;
+    if (response?.success && response?.data) {
+      return response.data;
     }
     throw new Error('Failed to update booking status');
   },
@@ -74,13 +74,13 @@ export const bookingService = {
       params: { page, limit }
     });
     
-    if (response.data?.success && response.data?.data) {
+    if (response?.success && response?.data) {
       return {
-        bookings: response.data.data.bookings,
+        bookings: response.data.bookings,
         pagination: {
-          currentPage: response.data.data.currentPage,
-          totalPages: response.data.data.totalPages,
-          hasMore: response.data.data.currentPage < response.data.data.totalPages,
+          currentPage: response.data.currentPage,
+          totalPages: response.data.totalPages,
+          hasMore: response.data.currentPage < response.data.totalPages,
         },
       };
     }

@@ -23,9 +23,15 @@ export const notificationService = {
     }>('/notifications', {
       params: { page, limit }
     });
-    
-    if (response.data?.success && response.data?.data) {
-      return response.data.data;
+    console.log('🔍 [NOTIFICATIONS RESPONSE]', response);
+    if (response?.success && response?.data) {
+      return {
+        notifications: response.data.notifications,
+        totalCount: response.data.totalCount,
+        currentPage: response.data.currentPage, 
+        totalPages: response.data.totalPages,
+        unreadCount: response.data.unreadCount
+      };
     }
     
     return {
@@ -40,7 +46,7 @@ export const notificationService = {
   // Get unread notifications count
   getUnreadCount: async (): Promise<number> => {
     const response = await apiClient.get<{ success: boolean; data: { unreadCount: number } }>('/notifications');
-    return response.data?.data?.unreadCount || 0;
+    return response.data?.unreadCount || 0;
   },
 
   // Mark a notification as read
@@ -64,47 +70,12 @@ export const notificationService = {
   },
 
   // Get notification preferences
-  getPreferences: async (): Promise<{
-    email: boolean;
-    push: boolean;
-    sms: boolean;
-    types: {
-      bookings: boolean;
-      messages: boolean;
-      matches: boolean;
-      payments: boolean;
-      reviews: boolean;
-    };
-  }> => {
-    const response = await apiClient.get<any>('/notifications/preferences');
-    return response.data || {
-      email: true,
-      push: true,
-      sms: false,
-      types: {
-        bookings: true,
-        messages: true,
-        matches: true,
-        payments: true,
-        reviews: true,
-      },
-    };
+  getPreferences: async () => {
+    const response = await apiClient.get('/users/notification-preferences');
+    return response;
   },
-
-  // Update notification preferences
-  updatePreferences: async (preferences: {
-    email?: boolean;
-    push?: boolean;
-    sms?: boolean;
-    types?: {
-      bookings?: boolean;
-      messages?: boolean;
-      matches?: boolean;
-      payments?: boolean;
-      reviews?: boolean;
-    };
-  }): Promise<void> => {
-    await apiClient.put('/notifications/preferences', preferences);
+  updatePreferences: async (prefs: any) => {
+    await apiClient.patch('/users/notification-preferences', prefs);
   },
 
   // Create a test notification (for development)

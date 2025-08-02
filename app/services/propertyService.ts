@@ -202,33 +202,15 @@ export class PropertyService {
   /**
    * Add property to favorites
    */
-  async addToFavorites(propertyId: string): Promise<any> {
-    try {
-      const response = await apiClient.post<null>(API_ENDPOINTS.PROPERTIES.DETAILS(propertyId) + '/favorite');
-      return {
-        success: true,
-        data: null,
-        message: 'Property added to favorites',
-      };
-    } catch (error) {
-      throw error;
-    }
+  async addToFavorites(propertyId: string): Promise<void> {
+    await apiClient.post(`/favorites/${propertyId}`);
   }
 
   /**
    * Remove property from favorites
    */
-  async removeFromFavorites(propertyId: string): Promise<any> {
-    try {
-      const response = await apiClient.delete<null>(API_ENDPOINTS.PROPERTIES.DETAILS(propertyId) + '/favorite');
-      return {
-        success: true,
-        data: null,
-        message: 'Property removed from favorites',
-      };
-    } catch (error) {
-      throw error;
-    }
+  async removeFromFavorites(propertyId: string): Promise<void> {
+    await apiClient.delete(`/favorites/${propertyId}`);
   }
 
   /**
@@ -249,32 +231,9 @@ export class PropertyService {
   /**
    * Get user's favorite properties
    */
-  async getFavorites(): Promise<PaginatedResponse<Property>> {
-    const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.FAVORITES);
-    if (Array.isArray(response.data)) {
-      return {
-        success: true,
-        data: response.data,
-        pagination: {
-          currentPage: 1,
-          totalPages: 1,
-          totalItems: response.data.length,
-          itemsPerPage: response.data.length,
-        },
-        message: 'Favorites retrieved successfully',
-      };
-    }
-    return {
-      success: true,
-      data: [],
-      pagination: {
-        currentPage: 1,
-        totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: 0,
-      },
-      message: 'No favorites found',
-    };
+  async getFavorites(): Promise<{ favorites: Property[] }> {
+    const response: any = await apiClient.get('/favorites');
+    return { favorites: response.favorites || [] };
   }
 
   /**
@@ -355,16 +314,16 @@ export class PropertyService {
    * Get properties by landlord
    */
   async getPropertiesByLandlord(landlordId: string): Promise<PaginatedResponse<Property>> {
-    const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.LIST + `?landlordId=${landlordId}`);
-    if (response.data && Array.isArray(response.data.properties)) {
+    const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.LIST + '/landlords/' + `${landlordId}` + '/properties');
+    if (response && Array.isArray(response)) {
       return {
         success: true,
-        data: response.data.properties,
+        data: response,
         pagination: {
-          currentPage: response.data.page || 1,
+          currentPage: 1,
           totalPages: 1,
-          totalItems: response.data.properties.length,
-          itemsPerPage: response.data.properties.length,
+          totalItems: response.length,
+          itemsPerPage: response.length,
         },
         message: 'Landlord properties retrieved successfully',
       };
