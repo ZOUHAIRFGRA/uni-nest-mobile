@@ -82,7 +82,6 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await authService.login({ email, password });
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
     } catch (err: any) {
       setError(err?.message || 'Login failed. Please try again.');
     } finally {
