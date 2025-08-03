@@ -1,6 +1,6 @@
 // User types - Updated to match API v2
 export interface User {
-  _id: string;
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
