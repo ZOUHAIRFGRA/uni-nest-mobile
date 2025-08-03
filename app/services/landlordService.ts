@@ -1,380 +1,325 @@
-import { config } from '../utils/config';
+import { apiClient } from "./apiClient";
+import {
+  PropertiesResponse,
+  PaymentHistoryResponse,
+  RevenueAnalyticsResponse,
+  MaintenanceRequestsResponse
+} from "../types";
 
 class LandlordService {
-  private getAuthHeaders() {
-    // This would get the token from secure storage in a real app
-    const token = ''; // Get from AsyncStorage or secure storage
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
 
   // Property Management APIs
-  async getMyProperties(page = 1, limit = 10) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/properties?page=${page}&limit=${limit}`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching landlord properties:', error);
-      throw error;
-    }
+  async getMyProperties(page = 1, limit = 10): Promise<PropertiesResponse> {
+    return await apiClient.get('/landlord/properties', { page, limit });
   }
 
   async getPropertyStats(propertyId: string) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/properties/${propertyId}/stats`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching property stats:', error);
-      throw error;
-    }
+    return await apiClient.get(`/landlord/properties/${propertyId}/stats`);
   }
 
   async updatePropertyStatus(propertyId: string, isAvailable: boolean) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/properties/${propertyId}/status`, {
-        method: 'PATCH',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ isAvailable }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating property status:', error);
-      throw error;
-    }
+    return await apiClient.patch(`/landlord/properties/${propertyId}/status`, { isAvailable });
   }
 
   // Booking Management APIs
   async getMyBookings(status?: string, page = 1, limit = 10) {
-    try {
-      let url = `${config.API_BASE_URL}/landlord/bookings?page=${page}&limit=${limit}`;
-      if (status) {
-        url += `&status=${status}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching landlord bookings:', error);
-      throw error;
-    }
+    const params: Record<string, any> = { page, limit };
+    if (status) params.status = status;
+    return await apiClient.get('/landlord/bookings', params);
   }
 
   async approveBooking(bookingId: string, notes?: string) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/bookings/${bookingId}/approve`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ notes }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error approving booking:', error);
-      throw error;
-    }
+    return await apiClient.post(`/landlord/bookings/${bookingId}/approve`, { notes });
   }
 
   async rejectBooking(bookingId: string, reason: string) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/bookings/${bookingId}/reject`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ reason }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error rejecting booking:', error);
-      throw error;
-    }
+    return await apiClient.post(`/landlord/bookings/${bookingId}/reject`, { reason });
   }
 
-  // Payment Management APIs
-  async verifyPayment(bookingId: string, isValid: boolean, notes?: string) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/bookings/${bookingId}/verify-payment`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ isValid, notes }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error verifying payment:', error);
-      throw error;
-    }
+  // Booking Payment Management APIs
+  async processBookingPayment(bookingId: string, paymentData: {
+    method: string;
+    amount: number;
+    currency?: string;
+    proofUrl?: string;
+  }) {
+    return await apiClient.post(`/bookings/${bookingId}/payment`, paymentData);
   }
 
-  async getPaymentHistory(propertyId?: string, page = 1, limit = 10) {
-    try {
-      let url = `${config.API_BASE_URL}/landlord/payments?page=${page}&limit=${limit}`;
-      if (propertyId) {
-        url += `&propertyId=${propertyId}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching payment history:', error);
-      throw error;
-    }
+  async getBookingDetails(bookingId: string) {
+    return await apiClient.get(`/bookings/${bookingId}`);
+  }
+
+  async updateBookingStatus(bookingId: string, status: string, notes?: string) {
+    return await apiClient.patch(`/bookings/${bookingId}/status`, { status, notes });
+  }
+
+  async cancelBooking(bookingId: string, reason?: string) {
+    // Note: DELETE requests typically don't have body, reason could be sent as query param
+    return await apiClient.delete(`/bookings/${bookingId}${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`);
+  }
+
+  // Payment Management APIs  
+  async verifyPayment(paymentId: string, isValid: boolean, notes?: string) {
+    return await apiClient.patch(`/payments/${paymentId}/verify`, { isValid, notes });
+  }
+
+  async getPaymentHistory(propertyId?: string, page = 1, limit = 10): Promise<PaymentHistoryResponse> {
+    const params: Record<string, any> = { page, limit };
+    if (propertyId) params.propertyId = propertyId;
+    return await apiClient.get('/payments', params);
+  }
+
+  async getPaymentDetails(paymentId: string) {
+    return await apiClient.get(`/payments/${paymentId}`);
+  }
+
+  async getPaymentInstructions(method: string) {
+    return await apiClient.get(`/payments/instructions/${method}`);
+  }
+
+  async calculatePaymentFees(amount: number, method: string) {
+    return await apiClient.get('/payments/fees/calculate', { amount, method });
+  }
+
+  async getAdminPaymentDashboard() {
+    return await apiClient.get('/payments/admin/dashboard');
+  }
+
+  // Additional Payment Analytics for Landlords
+  async getPaymentsByProperty(propertyId: string, status?: string, page = 1, limit = 10) {
+    const params: Record<string, any> = { propertyId, page, limit };
+    if (status) params.status = status;
+    return await apiClient.get('/payments', params);
+  }
+
+  async getPaymentStats(propertyIds?: string[], period = 'monthly') {
+    const params: Record<string, any> = { period };
+    if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
+    return await apiClient.get('/payments/stats', params);
   }
 
   // Analytics APIs
   async getDashboardStats() {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/dashboard/stats`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      throw error;
-    }
+    return await apiClient.get('/landlord/dashboard/stats');
   }
 
-  async getRevenueAnalytics(period: 'month' | 'quarter' | 'year' = 'month') {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/analytics/revenue?period=${period}`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching revenue analytics:', error);
-      throw error;
-    }
+  async getRevenueAnalytics(period = 'monthly', propertyIds?: string[], startDate?: string, endDate?: string): Promise<RevenueAnalyticsResponse> {
+    const params: Record<string, any> = { period };
+    if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return await apiClient.get('/landlord/analytics/revenue', params);
   }
 
   async getOccupancyAnalytics(propertyId?: string) {
-    try {
-      let url = `${config.API_BASE_URL}/landlord/analytics/occupancy`;
-      if (propertyId) {
-        url += `?propertyId=${propertyId}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching occupancy analytics:', error);
-      throw error;
-    }
+    const params: Record<string, any> = {};
+    if (propertyId) params.propertyId = propertyId;
+    return await apiClient.get('/landlord/analytics/occupancy', params);
   }
 
   // Tenant Management APIs
   async getMyTenants(propertyId?: string) {
-    try {
-      let url = `${config.API_BASE_URL}/landlord/tenants`;
-      if (propertyId) {
-        url += `?propertyId=${propertyId}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching tenants:', error);
-      throw error;
-    }
+    const params: Record<string, any> = {};
+    if (propertyId) params.propertyId = propertyId;
+    return await apiClient.get('/landlord/tenants', params);
   }
 
   async sendNotificationToTenant(tenantId: string, title: string, message: string) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/tenants/${tenantId}/notify`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ title, message }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error sending tenant notification:', error);
-      throw error;
-    }
+    return await apiClient.post(`/landlord/tenants/${tenantId}/notify`, { title, message });
+  }
+
+  // Financial Analytics APIs
+  async getExpenseBreakdown(period = 'monthly', categories?: string[], propertyIds?: string[], startDate?: string, endDate?: string) {
+    const params: Record<string, any> = { period };
+    if (categories?.length) params.categories = categories.join(',');
+    if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return await apiClient.get('/landlord/analytics/expenses', params);
+  }
+
+  async getPropertyPerformance(propertyIds?: string[], period = 'monthly') {
+    const params: Record<string, any> = { period };
+    if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
+    return await apiClient.get('/landlord/analytics/properties', params);
+  }
+
+  async getDashboardOverview() {
+    return await apiClient.get('/landlord/analytics/dashboard');
   }
 
   // Maintenance Management APIs
-  async getMaintenanceRequests(propertyId?: string, status?: string) {
-    try {
-      let url = `${config.API_BASE_URL}/landlord/maintenance`;
-      const params = new URLSearchParams();
-      if (propertyId) params.append('propertyId', propertyId);
-      if (status) params.append('status', status);
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching maintenance requests:', error);
-      throw error;
-    }
+  async getMaintenanceRequests(propertyId?: string, status?: string, priority?: string, category?: string, page = 1, limit = 10): Promise<MaintenanceRequestsResponse> {
+    const params: Record<string, any> = { page, limit };
+    if (propertyId) params.propertyId = propertyId;
+    if (status) params.status = status;
+    if (priority) params.priority = priority;
+    if (category) params.category = category;
+    return await apiClient.get('/landlord/maintenance', params);
   }
 
-  async updateMaintenanceStatus(requestId: string, status: string, notes?: string) {
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/landlord/maintenance/${requestId}`, {
-        method: 'PATCH',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ status, notes }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating maintenance status:', error);
-      throw error;
-    }
+  async createMaintenanceRequest(requestData: {
+    propertyId: string;
+    tenantId: string;
+    title: string;
+    description: string;
+    category: string;
+    priority?: string;
+    images?: string[];
+    notes?: string;
+  }) {
+    return await apiClient.post('/landlord/maintenance', requestData);
+  }
+
+  async updateMaintenanceStatus(requestId: string, status: string, notes?: string, estimatedCost?: number, actualCost?: number) {
+    return await apiClient.put(`/landlord/maintenance/${requestId}`, { status, notes, estimatedCost, actualCost });
+  }
+
+  async assignContractor(requestId: string, contractorId?: string, contractorInfo?: {
+    name: string;
+    phone: string;
+    email?: string;
+    specialty?: string;
+  }) {
+    return await apiClient.post(`/landlord/maintenance/${requestId}/assign`, { contractorId, contractorInfo });
+  }
+
+  async getMaintenanceHistory(requestId: string) {
+    return await apiClient.get(`/landlord/maintenance/${requestId}/history`);
   }
 
   // Document Management APIs
-  async uploadDocument(file: File, type: string, bookingId?: string, propertyId?: string) {
-    try {
-      const formData = new FormData();
-      formData.append('document', file);
-      formData.append('type', type);
-      if (bookingId) formData.append('bookingId', bookingId);
-      if (propertyId) formData.append('propertyId', propertyId);
-
-      const response = await fetch(`${config.API_BASE_URL}/landlord/documents`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${''}`  // Token would come from storage
-        },
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      throw error;
-    }
+  async getDocuments(category?: string, propertyId?: string, tenantId?: string, tags?: string[], search?: string, page = 1, limit = 20) {
+    const params: Record<string, any> = { page, limit };
+    if (category) params.category = category;
+    if (propertyId) params.propertyId = propertyId;
+    if (tenantId) params.tenantId = tenantId;
+    if (tags?.length) params.tags = tags.join(',');
+    if (search) params.search = search;
+    return await apiClient.get('/landlord/documents', params);
   }
 
-  async getDocuments(type?: string, bookingId?: string, propertyId?: string) {
-    try {
-      let url = `${config.API_BASE_URL}/landlord/documents`;
-      const params = new URLSearchParams();
-      if (type) params.append('type', type);
-      if (bookingId) params.append('bookingId', bookingId);
-      if (propertyId) params.append('propertyId', propertyId);
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      throw error;
-    }
+  async uploadDocument(documentData: {
+    propertyId?: string;
+    tenantId?: string;
+    title: string;
+    description?: string;
+    category: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    expiryDate?: string;
+    tags?: string[];
+    accessLevel?: string;
+  }) {
+    return await apiClient.post('/landlord/documents', documentData);
+  }
+
+  async updateDocument(documentId: string, updates: {
+    title?: string;
+    description?: string;
+    category?: string;
+    expiryDate?: string;
+    tags?: string[];
+    accessLevel?: string;
+  }) {
+    return await apiClient.put(`/landlord/documents/${documentId}`, updates);
+  }
+
+  async deleteDocument(documentId: string) {
+    return await apiClient.delete(`/landlord/documents/${documentId}`);
+  }
+
+  async getExpiringDocuments(daysAhead = 30) {
+    return await apiClient.get('/landlord/documents/expiring', { daysAhead });
+  }
+
+  async downloadDocument(documentId: string) {
+    return await apiClient.get(`/landlord/documents/${documentId}/download`);
+  }
+
+  async shareDocument(documentId: string, userId: string, permissions = 'view') {
+    return await apiClient.post(`/landlord/documents/${documentId}/share`, { userId, permissions });
+  }
+
+  // Expense Management APIs
+  async getExpenses(category?: string, propertyId?: string, startDate?: string, endDate?: string, page = 1, limit = 20) {
+    const params: Record<string, any> = { page, limit };
+    if (category) params.category = category;
+    if (propertyId) params.propertyId = propertyId;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return await apiClient.get('/landlord/expenses', params);
+  }
+
+  async createExpense(expenseData: {
+    propertyId?: string;
+    category: string;
+    subcategory?: string;
+    amount: number;
+    currency?: string;
+    description: string;
+    date?: string;
+    vendor?: {
+      name: string;
+      contact?: string;
+      email?: string;
+    };
+    receiptUrl?: string;
+    paymentMethod?: string;
+    isRecurring?: boolean;
+    recurringPattern?: {
+      frequency: string;
+      interval?: number;
+      endDate?: string;
+    };
+    maintenanceRequestId?: string;
+    tags?: string[];
+    notes?: string;
+    isDeductible?: boolean;
+    taxCategory?: string;
+  }) {
+    return await apiClient.post('/landlord/expenses', expenseData);
+  }
+
+  async updateExpense(expenseId: string, updates: any) {
+    return await apiClient.put(`/landlord/expenses/${expenseId}`, updates);
+  }
+
+  async deleteExpense(expenseId: string) {
+    return await apiClient.delete(`/landlord/expenses/${expenseId}`);
+  }
+
+  async getCategorizedExpenses(propertyId?: string, startDate?: string, endDate?: string) {
+    const params: Record<string, any> = {};
+    if (propertyId) params.propertyId = propertyId;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return await apiClient.get('/landlord/expenses/categorized', params);
+  }
+
+  async getExpenseTrends(months = 12, propertyId?: string) {
+    const params: Record<string, any> = { months };
+    if (propertyId) params.propertyId = propertyId;
+    return await apiClient.get('/landlord/expenses/trends', params);
+  }
+
+  // Property Analytics APIs
+  async getPropertyAnalytics(propertyId: string, period = 'monthly') {
+    return await apiClient.get(`/landlord/properties/${propertyId}/analytics`, { period });
+  }
+
+  async getOccupancyStats(propertyId: string) {
+    return await apiClient.get(`/landlord/properties/${propertyId}/occupancy`);
+  }
+
+  async getRevenueByProperty(propertyId: string, period = 'monthly', startDate?: string, endDate?: string) {
+    const params: Record<string, any> = { period };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return await apiClient.get(`/landlord/properties/${propertyId}/revenue`, params);
   }
 }
 

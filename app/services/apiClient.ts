@@ -1,5 +1,5 @@
 import { config, HTTP_STATUS, ERROR_MESSAGES, STORAGE_KEYS } from '../utils/config';
-import { ApiResponse, PaginatedResponse } from '../types';
+import { PaginatedResponse } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from './authService';
 
@@ -8,10 +8,10 @@ class ApiClient {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
   private isRefreshing: boolean = false;
-  private failedQueue: Array<{
+  private failedQueue: {
     resolve: (value: any) => void;
     reject: (error: any) => void;
-  }> = [];
+  }[] = [];
 
   constructor() {
     this.baseURL = config.API_BASE_URL;
@@ -214,7 +214,7 @@ class ApiClient {
                 await this.removeAuthToken();
                 throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
               }
-            } catch (refreshError) {
+            } catch {
               this.isRefreshing = false;
               await this.removeAuthToken();
               throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
@@ -338,19 +338,8 @@ export async function getPaginatedData<T>(
   endpoint: string,
   params?: Record<string, any>
 ): Promise<PaginatedResponse<T>> {
-  const response = await apiClient.get<T[]>(endpoint, params);
-  // Transform the response to match PaginatedResponse format
-  return {
-    success: true,
-    data: response as T[],
-    pagination: {
-      currentPage: 1,
-      totalPages: 1,
-      totalItems: (response as T[]).length,
-      itemsPerPage: 10
-    },
-    message: 'Success'
-  };
+  // The backend already returns data in the correct PaginatedResponse format
+  return await apiClient.get<PaginatedResponse<T>>(endpoint, params);
 }
 
 // Helper function to handle file uploads
