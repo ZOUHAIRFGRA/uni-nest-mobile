@@ -38,6 +38,9 @@ import ViewUserProfileScreen from '../profile/ViewUserProfileScreen';
 import ChatScreen from '../chat/ChatScreen';
 import BookingManagementScreen from '../booking/BookingManagementScreen';
 import DirectMessageScreen from '../chat/DirectMessageScreen';
+import FinanceAnalyticsScreen from '../dashboard/FinanceAnalyticsScreen';
+import MaintenanceManagementScreen from '../dashboard/MaintenanceManagementScreen';
+import DocumentManagementScreen from '../dashboard/DocumentManagementScreen';
 
 // Auth stack: Onboarding, Login, Register
 const AuthStack = createStackNavigator();
@@ -90,6 +93,7 @@ function BookingStackNavigator({ route }: any) {
         <>
           <BookingStack.Screen name="BookingManagement" component={BookingManagementScreen} />
           <BookingStack.Screen name="BookingDetails" component={BookingDetailsScreen} />
+          <BookingStack.Screen name="BookingPaymentScreen" component={BookingPaymentScreen} />
           <BookingStack.Screen name="DisputeScreen" component={DisputeScreen} />
         </>
       ) : (
@@ -231,9 +235,9 @@ const MainAppNavigator: React.FC = () => {
               {isLandlord ? (
                 <>
                   <Drawer.Screen name="LandlordTabs" component={LandlordTabs} options={{ title: 'Home' }} />
-                  <Drawer.Screen name="Finance" component={NotificationsScreen} options={{ title: 'Finance & Analytics', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="chart-line" size={size} color={color} />) }} />
-                  <Drawer.Screen name="Maintenance" component={NotificationsScreen} options={{ title: 'Maintenance', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="wrench" size={size} color={color} />) }} />
-                  <Drawer.Screen name="Documents" component={NotificationsScreen} options={{ title: 'Documents', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="file-document" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Finance" component={FinanceAnalyticsScreen} options={{ title: 'Finance & Analytics', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="chart-line" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Maintenance" component={MaintenanceManagementScreen} options={{ title: 'Maintenance', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="wrench" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Documents" component={DocumentManagementScreen} options={{ title: 'Documents', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="file-document" size={size} color={color} />) }} />
                   <Drawer.Screen name="Notifications" component={NotificationsScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="bell" size={size} color={color} />) }} />
                   <Drawer.Screen name="Disputes" component={DisputeScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="gavel" size={size} color={color} />) }} />
                 </>

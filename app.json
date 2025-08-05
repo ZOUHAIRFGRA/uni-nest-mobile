@@ -3,16 +3,17 @@
     "name": "uni-nest",
     "slug": "uni-nest",
     "version": "1.0.0",
-    "platforms": ["ios", "android", "web"],
-
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "experiments": {
       "tsconfigPaths": true
     },
-
     "plugins": [
       [
         "expo-splash-screen",
@@ -24,18 +25,17 @@
         }
       ]
     ],
-
     "orientation": "portrait",
     "icon": "./assets/logo.png",
-
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/splash2.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.uninest.app",
@@ -58,7 +58,16 @@
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
-    }
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "054a6d2a-04ae-4c4b-ba19-2a340156a95a"
+      }
+    },
+    "owner": "zouhairfgra"
   }
 }
