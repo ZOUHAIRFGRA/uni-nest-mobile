@@ -3,7 +3,8 @@ import {
   PropertiesResponse,
   PaymentHistoryResponse,
   RevenueAnalyticsResponse,
-  MaintenanceRequestsResponse
+  MaintenanceRequestsResponse,
+  BookingsResponse
 } from "../types";
 
 class LandlordService {
@@ -22,7 +23,7 @@ class LandlordService {
   }
 
   // Booking Management APIs
-  async getMyBookings(status?: string, page = 1, limit = 10) {
+  async getMyBookings(status?: string, page = 1, limit = 10): Promise<BookingsResponse> {
     const params: Record<string, any> = { page, limit };
     if (status) params.status = status;
     return await apiClient.get('/landlord/bookings', params);

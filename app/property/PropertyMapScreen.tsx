@@ -33,7 +33,7 @@ export default function PropertyMapScreen() {
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
-  const [locationChecked, setLocationChecked] = useState(false);
+  const [, setLocationChecked] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -44,7 +44,7 @@ export default function PropertyMapScreen() {
         await getAndSetLocation();
         // Fetch all properties
         const all = await propertyService.getProperties();
-        setAllProperties(all.data || []);
+        setAllProperties(all.data?.properties || []);
         // Fetch selected property
         if (propertyId) {
           const result = await propertyService.getPropertyById(propertyId);
@@ -52,6 +52,7 @@ export default function PropertyMapScreen() {
         }
       } catch (e: any) {
         setError('Failed to load map data');
+        console.error(e);
       } finally {
         setLoading(false);
         setLocationChecked(true);

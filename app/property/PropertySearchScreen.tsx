@@ -40,7 +40,7 @@ export default function PropertySearchScreen() {
       } else {
         response = await propertyService.getProperties({ query: search });
       }
-      setProperties(response?.data || []);
+      setProperties(response?.data?.properties || []);
     } catch (e: any) {
       setError(e.message || 'Failed to load properties');
     } finally {

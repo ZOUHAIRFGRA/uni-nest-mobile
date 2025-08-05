@@ -8,31 +8,29 @@ export const matchingService = {
     type: 'Property' | 'Roommate' = 'Property',
     page = 1,
     limit = 10
-  ): Promise<PaginatedResponse<Match>> => {
+  ): Promise<PaginatedResponse<{ matches: Match[] }>> => {
     const params = { type, page, limit };
     const response: any = await apiClient.get(API_ENDPOINTS.MATCHING.LIST, params);
     console.log('🔍 [MATCHES RESPONSE FROM API]', response);
     if (response && response.data && Array.isArray(response.data.matches)) {
       return {
         success: true,
-        data: response.data.matches,
-        pagination: {
+        data: {
           currentPage: response.data.currentPage || 1,
           totalPages: response.data.totalPages || 1,
-          totalItems: response.data.totalCount || response.data.matches.length,
-          itemsPerPage: limit,
+          totalCount: response.data.totalCount || response.data.matches.length,
+          matches: response.data.matches,
         },
         message: 'Matches retrieved successfully',
       };
     }
     return {
       success: true,
-      data: [],
-      pagination: {
+      data: {
         currentPage: 1,
         totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: limit,
+        totalCount: 0,
+        matches: [],
       },
       message: 'No matches found',
     };

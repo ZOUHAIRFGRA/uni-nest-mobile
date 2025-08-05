@@ -6,7 +6,7 @@ export class PropertyService {
   /**
    * Get list of properties with optional filters
    */
-  async getProperties(filters?: SearchFilters, page?: number, limit?: number): Promise<PaginatedResponse<Property>> {
+  async getProperties(filters?: SearchFilters, page?: number, limit?: number): Promise<PaginatedResponse<{ properties: Property[] }>> {
     const params: Record<string, any> = {};
     if (filters) {
       if (filters.query) params.q = filters.query;
@@ -32,24 +32,22 @@ export class PropertyService {
     if (response && Array.isArray(response.properties)) {
       return {
         success: true,
-        data: response.properties,
-        pagination: {
+        data: {
           currentPage: response.page,
           totalPages: Math.ceil(response.total / response.limit),
-          totalItems: response.total,
-          itemsPerPage: response.limit,
+          totalCount: response.total,
+          properties: response.properties,
         },
         message: 'Properties retrieved successfully',
       };
     }
     return {
       success: true,
-      data: [],
-      pagination: {
+      data: {
         currentPage: 1,
         totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: limit || 10,
+        totalCount: 0,
+        properties: [],
       },
       message: 'No properties found',
     };
@@ -122,7 +120,7 @@ export class PropertyService {
   /**
    * Search properties with text query
    */
-  async searchProperties(query: string, filters?: SearchFilters): Promise<PaginatedResponse<Property>> {
+  async searchProperties(query: string, filters?: SearchFilters): Promise<PaginatedResponse<{ properties: Property[] }>> {
     const params: Record<string, any> = { keyword: query };
     if (filters) {
       if (filters.priceRange) {
@@ -136,24 +134,22 @@ export class PropertyService {
     if (response.data && Array.isArray(response.data.properties)) {
       return {
         success: true,
-        data: response.data.properties,
-        pagination: {
+        data: {
           currentPage: response.data.page || 1,
           totalPages: 1,
-          totalItems: response.data.properties.length,
-          itemsPerPage: response.data.properties.length,
+          totalCount: response.data.properties.length,
+          properties: response.data.properties,
         },
         message: 'Properties found successfully',
       };
     }
     return {
       success: true,
-      data: [],
-      pagination: {
+      data: {
         currentPage: 1,
         totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: 0,
+        totalCount: 0,
+        properties: [],
       },
       message: 'No properties found',
     };
@@ -166,7 +162,7 @@ export class PropertyService {
     latitude: number,
     longitude: number,
     radius?: number
-  ): Promise<PaginatedResponse<Property>> {
+  ): Promise<PaginatedResponse<{ properties: Property[] }>> {
     const params = {
       lat: latitude,
       lng: longitude,
@@ -176,24 +172,22 @@ export class PropertyService {
     if (response.data && Array.isArray(response.data.properties)) {
       return {
         success: true,
-        data: response.data.properties,
-        pagination: {
+        data: {
           currentPage: response.data.page || 1,
           totalPages: 1,
-          totalItems: response.data.properties.length,
-          itemsPerPage: response.data.properties.length,
+          totalCount: response.data.properties.length,
+          properties: response.data.properties,
         },
         message: 'Nearby properties found successfully',
       };
     }
     return {
       success: true,
-      data: [],
-      pagination: {
+      data: {
         currentPage: 1,
         totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: 0,
+        totalCount: 0,
+        properties: [],
       },
       message: 'No nearby properties found',
     };
@@ -220,7 +214,7 @@ export class PropertyService {
     try {
       try {
         return await this.addToFavorites(propertyId);
-      } catch (error) {
+      } catch {
         return await this.removeFromFavorites(propertyId);
       }
     } catch (error) {
@@ -239,30 +233,28 @@ export class PropertyService {
   /**
    * Get property reviews
    */
-  async getPropertyReviews(propertyId: string): Promise<PaginatedResponse<any>> {
+  async getPropertyReviews(propertyId: string): Promise<PaginatedResponse<{ reviews: any[] }>> {
     try {
       const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.DETAILS(propertyId) + '/reviews');
       if (Array.isArray(response.data)) {
         return {
           success: true,
-          data: response.data,
-          pagination: {
+          data: {
             currentPage: 1,
             totalPages: 1,
-            totalItems: response.data.length,
-            itemsPerPage: response.data.length,
+            totalCount: response.data.length,
+            reviews: response.data,
           },
           message: 'Reviews retrieved successfully',
         };
       }
       return {
         success: true,
-        data: [],
-        pagination: {
+        data: {
           currentPage: 1,
           totalPages: 0,
-          totalItems: 0,
-          itemsPerPage: 0,
+          totalCount: 0,
+          reviews: [],
         },
         message: 'No reviews found',
       };
@@ -313,29 +305,27 @@ export class PropertyService {
   /**
    * Get properties by landlord
    */
-  async getPropertiesByLandlord(landlordId: string): Promise<PaginatedResponse<Property>> {
+  async getPropertiesByLandlord(landlordId: string): Promise<PaginatedResponse<{ properties: Property[] }>> {
     const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.LIST + '/landlords/' + `${landlordId}` + '/properties');
     if (response && Array.isArray(response)) {
       return {
         success: true,
-        data: response,
-        pagination: {
+        data: {
           currentPage: 1,
           totalPages: 1,
-          totalItems: response.length,
-          itemsPerPage: response.length,
+          totalCount: response.length,
+          properties: response,
         },
         message: 'Landlord properties retrieved successfully',
       };
     }
     return {
       success: true,
-      data: [],
-      pagination: {
+      data: {
         currentPage: 1,
         totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: 0,
+        totalCount: 0,
+        properties: [],
       },
       message: 'No properties found for landlord',
     };
@@ -362,7 +352,7 @@ export class PropertyService {
    */
   async reportProperty(propertyId: string, reason: string, description: string): Promise<any> {
     try {
-      const response = await apiClient.post<null>(API_ENDPOINTS.PROPERTIES.DETAILS(propertyId) + '/report', {
+      await apiClient.post<null>(API_ENDPOINTS.PROPERTIES.DETAILS(propertyId) + '/report', {
         reason,
         description,
       });
