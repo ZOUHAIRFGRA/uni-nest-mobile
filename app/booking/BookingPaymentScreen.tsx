@@ -1,32 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme, ScrollView, Platform, Image as RNImage } from 'react-native';
+import { useColorScheme, ScrollView, Image as RNImage } from 'react-native';
 import { getTheme } from '../utils/theme';
 import { VStack } from '../../components/ui/vstack';
+import { HStack } from '../../components/ui/hstack';
 import { Text } from '../../components/ui/text';
 import { Box } from '../../components/ui/box';
 import { Button, ButtonText } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
 import { Divider } from '../../components/ui/divider';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { API_ENDPOINTS, PAYMENT_METHODS } from '../utils/config';
 import { apiClient } from '../services/apiClient';
+import { bookingService } from '../services/bookingService';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Spinner } from '../../components/ui/spinner';
+import { Booking } from '../types';
 
 export default function BookingPaymentScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const colorScheme = useColorScheme();
   const currentTheme = getTheme(colorScheme || 'light');
-  const bookingData = route.params?.bookingData || {};
-  const roommates = route.params?.roommates || [];
+  const bookingId = route.params?.bookingId;
 
+  // Booking data state
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Payment form state
   const [paymentMethod, setPaymentMethod] = useState('');
   const [instructions, setInstructions] = useState('');
   const [proofImage, setProofImage] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchBooking = async () => {
+      if (!bookingId) return;
+      
+      setLoading(true);
+      setError(null);
+      try {
+        const response: any = await bookingService.getBookingById(bookingId);
+        setBooking(response.data || response);
+      } catch (e: any) {
+        setError(e.message || 'Failed to load booking details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchBooking();
+  }, [bookingId]);
 
   const handleSelectMethod = async (method: string) => {
     setPaymentMethod(method);
@@ -34,7 +63,7 @@ export default function BookingPaymentScreen() {
     setError(null);
     try {
       // Fetch payment instructions from backend
-      const res = await apiClient.get(API_ENDPOINTS.PAYMENTS.INSTRUCTIONS(method));
+      const res: any = await apiClient.get(API_ENDPOINTS.PAYMENTS.INSTRUCTIONS(method));
       setInstructions(res.data?.instructions || '');
     } catch (e: any) {
       setInstructions('');
@@ -62,7 +91,7 @@ export default function BookingPaymentScreen() {
       // Simulate upload (replace with backend call if available)
       // const formData = new FormData();
       // formData.append('proof', { uri: proofImage.uri, name: 'proof.jpg', type: 'image/jpeg' });
-      // await apiClient.post(API_ENDPOINTS.PAYMENTS.UPLOAD_PROOF(bookingData.id), formData);
+      // await apiClient.post(API_ENDPOINTS.PAYMENTS.UPLOAD_PROOF(bookingId), formData);
       setSuccess(true);
     } catch (e: any) {
       setError(e.message || 'Failed to upload payment proof');
@@ -71,65 +100,354 @@ export default function BookingPaymentScreen() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'paid': return currentTheme.colors.success;
+      case 'pending': return currentTheme.colors.warning;
+      case 'failed': return currentTheme.colors.error;
+      case 'refunded': return currentTheme.colors.secondary;
+      default: return currentTheme.colors.text.secondary;
+    }
+  };
+
+  const getVerificationColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'verified': return currentTheme.colors.success;
+      case 'pending': return currentTheme.colors.warning;
+      case 'rejected': return currentTheme.colors.error;
+      default: return currentTheme.colors.text.secondary;
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
+        <Box style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Spinner size="large" />
+          <Text size="md" style={{ color: currentTheme.colors.text.secondary, marginTop: currentTheme.spacing.md }}>
+            Loading payment details...
+          </Text>
+        </Box>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !booking) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
+        <Box style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: currentTheme.spacing.md }}>
+          <MaterialCommunityIcons name="alert-circle" size={48} color={currentTheme.colors.error} />
+          <Text size="md" style={{ color: currentTheme.colors.error, marginTop: currentTheme.spacing.md, textAlign: 'center' }}>
+            {error || 'Booking not found'}
+          </Text>
+          <Button action="primary" onPress={() => navigation.goBack()} style={{ marginTop: currentTheme.spacing.md }}>
+            <ButtonText>Go Back</ButtonText>
+          </Button>
+        </Box>
+      </SafeAreaView>
+    );
+  }
+
+  const isPaid = booking.paymentStatus.toLowerCase() === 'paid';
+  const isCompleted = booking.status.toLowerCase() === 'completed';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
-      <VStack space="lg" style={{ flex: 1, padding: currentTheme.spacing.md }}>
-        <Text size="3xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary, marginBottom: currentTheme.spacing.sm }}>
-          Payment
-        </Text>
-        <Text size="md" style={{ color: currentTheme.colors.text.secondary, marginBottom: currentTheme.spacing.xs }}>
-          Select a payment method and upload proof to complete your booking.
-        </Text>
-        <Divider style={{ marginVertical: currentTheme.spacing.sm }} />
-        <Text size="lg" style={{ fontWeight: '600', color: currentTheme.colors.text.primary, marginBottom: currentTheme.spacing.xs }}>
-          Payment Methods
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: currentTheme.spacing.md }}>
-          <Box style={{ flexDirection: 'row' }}>
-            {PAYMENT_METHODS.map((method) => (
-              <Button
-                key={method.id}
-                action={paymentMethod === method.id ? 'primary' : 'secondary'}
-                size="md"
-                style={{ marginRight: currentTheme.spacing.sm, borderRadius: 10, minWidth: 120 }}
-                onPress={() => handleSelectMethod(method.id)}
-              >
-                <ButtonText>{method.icon} {method.name}</ButtonText>
-              </Button>
-            ))}
-          </Box>
-        </ScrollView>
-        {instructions && (
-          <Box style={{ backgroundColor: currentTheme.colors.input, borderRadius: 8, padding: currentTheme.spacing.md, marginBottom: currentTheme.spacing.md }}>
-            <Text size="md" style={{ color: currentTheme.colors.text.primary }}>{instructions}</Text>
-          </Box>
-        )}
-        <Divider style={{ marginVertical: currentTheme.spacing.sm }} />
-        <Text size="lg" style={{ fontWeight: '600', color: currentTheme.colors.text.primary, marginBottom: currentTheme.spacing.xs }}>
-          Upload Payment Proof
-        </Text>
-        <Button action="secondary" size="md" onPress={handlePickImage} style={{ marginBottom: currentTheme.spacing.sm }}>
-          <ButtonText>{proofImage ? 'Change Image' : 'Pick Image'}</ButtonText>
-        </Button>
-        {proofImage && (
-          <Box style={{ alignItems: 'center', marginBottom: currentTheme.spacing.sm }}>
-            <RNImage source={{ uri: proofImage.uri }} style={{ width: 180, height: 180, borderRadius: 12 }} />
-          </Box>
-        )}
-        <Button action="primary" size="md" onPress={handleUploadProof} disabled={uploading || !proofImage} style={{ marginBottom: currentTheme.spacing.md }}>
-          <ButtonText>{uploading ? 'Uploading...' : 'Upload Proof'}</ButtonText>
-        </Button>
-        {error && (
-          <Text size="md" style={{ color: currentTheme.colors.error, marginBottom: currentTheme.spacing.sm }}>{error}</Text>
-        )}
-        {success && (
-          <Text size="md" style={{ color: currentTheme.colors.secondary, marginBottom: currentTheme.spacing.sm }}>Payment proof uploaded! Your booking will be confirmed soon.</Text>
-        )}
-        <Divider style={{ marginVertical: currentTheme.spacing.sm }} />
-        <Button action="secondary" size="md" variant="outline" onPress={() => navigation.goBack()}>
-          <ButtonText>Back</ButtonText>
-        </Button>
-      </VStack>
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, padding: currentTheme.spacing.md }} 
+        showsVerticalScrollIndicator={false}
+      >
+        <VStack space="lg" style={{ flex: 1 }}>
+          {/* Header */}
+          <HStack style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text size="3xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary }}>
+              {isPaid ? 'Payment Details' : 'Make Payment'}
+            </Text>
+            <Button action="secondary" variant="outline" size="sm" onPress={() => navigation.goBack()}>
+              <ButtonText>Back</ButtonText>
+            </Button>
+          </HStack>
+
+          {/* Payment Status Overview */}
+          <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
+            <VStack space="md">
+              <HStack style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text size="xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary }}>
+                  Payment Status
+                </Text>
+                <HStack space="sm">
+                  <Badge variant="solid" style={{ backgroundColor: getStatusColor(booking.paymentStatus) }}>
+                    <Text size="xs" style={{ color: 'white', fontWeight: '600' }}>
+                      {booking.paymentStatus}
+                    </Text>
+                  </Badge>
+                  {booking.paymentVerification && (
+                    <Badge variant="outline" style={{ borderColor: getVerificationColor(booking.paymentVerification.status) }}>
+                      <Text size="xs" style={{ 
+                        color: getVerificationColor(booking.paymentVerification.status), 
+                        fontWeight: '500' 
+                      }}>
+                        {booking.paymentVerification.status}
+                      </Text>
+                    </Badge>
+                  )}
+                </HStack>
+              </HStack>
+            </VStack>
+          </Card>
+
+          {/* Financial Summary */}
+          <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
+            <VStack space="md">
+              <HStack style={{ alignItems: 'center' }}>
+                <MaterialCommunityIcons name="currency-usd" size={24} color={currentTheme.colors.primary} />
+                <Text size="xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary, marginLeft: currentTheme.spacing.xs }}>
+                  Payment Summary
+                </Text>
+              </HStack>
+              
+              <VStack space="sm">
+                <HStack style={{ justifyContent: 'space-between' }}>
+                  <VStack style={{ flex: 1 }}>
+                    <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Monthly Rent</Text>
+                    <Text size="md" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                      {booking.monthlyRent} MAD
+                    </Text>
+                  </VStack>
+                  <VStack style={{ flex: 1, alignItems: 'center' }}>
+                    <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Security Deposit</Text>
+                    <Text size="md" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                      {booking.securityDeposit} MAD
+                    </Text>
+                  </VStack>
+                  <VStack style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Total Amount</Text>
+                    <Text size="lg" style={{ fontWeight: '700', color: currentTheme.colors.primary }}>
+                      {booking.totalAmount} MAD
+                    </Text>
+                  </VStack>
+                </HStack>
+                
+                <Divider style={{ marginVertical: currentTheme.spacing.xs }} />
+                
+                <HStack style={{ justifyContent: 'space-between' }}>
+                  <VStack style={{ flex: 1 }}>
+                    <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Payment Method</Text>
+                    <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                      {booking.paymentMethod || 'Not selected'}
+                    </Text>
+                  </VStack>
+                  <VStack style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Property</Text>
+                    <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                      {booking.propertyId?.title || 'Property'}
+                    </Text>
+                  </VStack>
+                </HStack>
+              </VStack>
+            </VStack>
+          </Card>
+
+          {/* Conditional Content Based on Payment Status */}
+          {isPaid ? (
+            // Show payment details for paid bookings
+            <VStack space="lg">
+              {/* Payment Proof */}
+              {booking.paymentProof && (
+                <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
+                  <VStack space="md">
+                    <HStack style={{ alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="file-image" size={24} color={currentTheme.colors.primary} />
+                      <Text size="xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary, marginLeft: currentTheme.spacing.xs }}>
+                        Payment Proof
+                      </Text>
+                    </HStack>
+                    <RNImage 
+                      source={{ uri: booking.paymentProof }} 
+                      style={{ 
+                        width: '100%', 
+                        height: 200, 
+                        borderRadius: currentTheme.borderRadius.medium,
+                        backgroundColor: currentTheme.colors.surface 
+                      }}
+                      resizeMode="cover"
+                    />
+                  </VStack>
+                </Card>
+              )}
+
+              {/* Payment History/Timeline */}
+              <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
+                <VStack space="md">
+                  <HStack style={{ alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="timeline" size={24} color={currentTheme.colors.primary} />
+                    <Text size="xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary, marginLeft: currentTheme.spacing.xs }}>
+                      Payment Timeline
+                    </Text>
+                  </HStack>
+                  
+                  <VStack space="sm">
+                    <HStack style={{ alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="check-circle" size={20} color={currentTheme.colors.success} />
+                      <VStack style={{ marginLeft: currentTheme.spacing.sm }}>
+                        <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                          Payment Completed
+                        </Text>
+                        <Text size="xs" style={{ color: currentTheme.colors.text.secondary }}>
+                          {new Date(booking.updatedAt).toLocaleDateString()}
+                        </Text>
+                      </VStack>
+                    </HStack>
+                    
+                    {booking.paymentVerification && (
+                      <HStack style={{ alignItems: 'center' }}>
+                        <MaterialCommunityIcons 
+                          name={booking.paymentVerification.status === 'Verified' ? 'shield-check' : 'clock'} 
+                          size={20} 
+                          color={getVerificationColor(booking.paymentVerification.status)} 
+                        />
+                        <VStack style={{ marginLeft: currentTheme.spacing.sm }}>
+                          <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                            Payment {booking.paymentVerification.status}
+                          </Text>
+                          <Text size="xs" style={{ color: currentTheme.colors.text.secondary }}>
+                            {booking.paymentVerification.verifiedAt ? 
+                              new Date(booking.paymentVerification.verifiedAt).toLocaleDateString() :
+                              'Verification in progress'
+                            }
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    )}
+                  </VStack>
+                </VStack>
+              </Card>
+
+              {/* Actions for completed payment */}
+              <VStack space="md">
+                {isCompleted && (
+                  <Button action="primary">
+                    <ButtonText>Download Receipt</ButtonText>
+                  </Button>
+                )}
+                <Button action="secondary" variant="outline">
+                  <ButtonText>Contact Support</ButtonText>
+                </Button>
+              </VStack>
+            </VStack>
+          ) : (
+            // Show payment form for unpaid bookings
+            <VStack space="lg">
+              <Text size="md" style={{ color: currentTheme.colors.text.secondary }}>
+                Select a payment method and upload proof to complete your booking.
+              </Text>
+
+              {/* Payment Methods */}
+              <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
+                <VStack space="md">
+                  <Text size="lg" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                    Payment Methods
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <HStack space="sm">
+                      {PAYMENT_METHODS.map((method) => (
+                        <Button
+                          key={method.id}
+                          action={paymentMethod === method.id ? 'primary' : 'secondary'}
+                          size="md"
+                          style={{ borderRadius: 10, minWidth: 120 }}
+                          onPress={() => handleSelectMethod(method.id)}
+                        >
+                          <ButtonText>{method.icon} {method.name}</ButtonText>
+                        </Button>
+                      ))}
+                    </HStack>
+                  </ScrollView>
+                </VStack>
+              </Card>
+
+              {/* Payment Instructions */}
+              {instructions && (
+                <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.warning + '20' }}>
+                  <VStack space="sm">
+                    <HStack style={{ alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="information" size={20} color={currentTheme.colors.warning} />
+                      <Text size="md" style={{ fontWeight: '600', color: currentTheme.colors.text.primary, marginLeft: currentTheme.spacing.xs }}>
+                        Payment Instructions
+                      </Text>
+                    </HStack>
+                    <Text size="sm" style={{ color: currentTheme.colors.text.primary, lineHeight: 20 }}>
+                      {instructions}
+                    </Text>
+                  </VStack>
+                </Card>
+              )}
+
+              {/* Upload Payment Proof */}
+              <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
+                <VStack space="md">
+                  <HStack style={{ alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="camera" size={24} color={currentTheme.colors.primary} />
+                    <Text size="lg" style={{ fontWeight: '600', color: currentTheme.colors.text.primary, marginLeft: currentTheme.spacing.xs }}>
+                      Upload Payment Proof
+                    </Text>
+                  </HStack>
+                  
+                  <Button action="secondary" size="md" onPress={handlePickImage}>
+                    <ButtonText>{proofImage ? 'Change Image' : 'Pick Image'}</ButtonText>
+                  </Button>
+                  
+                  {proofImage && (
+                    <Box style={{ alignItems: 'center' }}>
+                      <RNImage 
+                        source={{ uri: proofImage.uri }} 
+                        style={{ 
+                          width: 200, 
+                          height: 200, 
+                          borderRadius: currentTheme.borderRadius.medium 
+                        }} 
+                        resizeMode="cover"
+                      />
+                    </Box>
+                  )}
+                  
+                  <Button 
+                    action="primary" 
+                    size="md" 
+                    onPress={handleUploadProof} 
+                    disabled={uploading || !proofImage || !paymentMethod}
+                  >
+                    <ButtonText>{uploading ? 'Uploading...' : 'Submit Payment Proof'}</ButtonText>
+                  </Button>
+                </VStack>
+              </Card>
+
+              {/* Status Messages */}
+              {error && (
+                <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.error + '20' }}>
+                  <HStack style={{ alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="alert-circle" size={20} color={currentTheme.colors.error} />
+                    <Text size="sm" style={{ color: currentTheme.colors.error, marginLeft: currentTheme.spacing.xs }}>
+                      {error}
+                    </Text>
+                  </HStack>
+                </Card>
+              )}
+              
+              {success && (
+                <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.success + '20' }}>
+                  <HStack style={{ alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color={currentTheme.colors.success} />
+                    <Text size="sm" style={{ color: currentTheme.colors.success, marginLeft: currentTheme.spacing.xs }}>
+                      Payment proof uploaded successfully! Your booking will be confirmed soon.
+                    </Text>
+                  </HStack>
+                </Card>
+              )}
+            </VStack>
+          )}
+        </VStack>
+      </ScrollView>
     </SafeAreaView>
   );
 } 

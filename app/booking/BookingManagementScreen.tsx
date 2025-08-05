@@ -13,6 +13,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Spinner } from '../../components/ui/spinner';
 import { Badge } from '../../components/ui/badge';
 import { useSelector } from 'react-redux';
+import { landlordService } from '../services/landlordService';
+import { Booking } from '../types'; // Import the Booking type
 
 export default function BookingManagementScreen() {
   const navigation = useNavigation<any>();
@@ -20,26 +22,11 @@ export default function BookingManagementScreen() {
   const currentTheme = getTheme(colorScheme || 'light');
   const user = useSelector((state: any) => state.auth.user);
 
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]); // Use the Booking type
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<'pending' | 'active' | 'completed' | 'all'>('pending');
-
-  // Filter bookings based on selected tab
-  const filteredBookings = bookings.filter(booking => {
-    switch (selectedTab) {
-      case 'pending':
-        return booking.status === 'Pending';
-      case 'active':
-        return booking.status === 'Confirmed' || booking.status === 'Active';
-      case 'completed':
-        return booking.status === 'Completed' || booking.status === 'Cancelled';
-      case 'all':
-      default:
-        return true;
-    }
-  });
+  const [selectedTab, setSelectedTab] = useState<'pending' | 'confirmed' | 'cancelled' | 'completed' | 'all'>('pending');
 
   const fetchBookings = useCallback(async () => {
     if (!user?.id) return;
@@ -47,43 +34,23 @@ export default function BookingManagementScreen() {
     setLoading(true);
     setError(null);
     try {
-      // Mock API call - would be implemented in landlordService
-      const response = await Promise.resolve({
-        data: [
-          {
-            _id: '1',
-            propertyId: { title: 'Modern Apartment Downtown', images: ['https://example.com/img1.jpg'] },
-            studentId: { firstName: 'Ahmed', lastName: 'Ben Ali', email: 'ahmed@example.com' },
-            startDate: '2025-02-01',
-            endDate: '2025-07-31',
-            monthlyRent: 1200,
-            totalAmount: 1800,
-            status: 'Pending',
-            paymentStatus: 'Pending',
-            createdAt: '2025-01-15T10:30:00.000Z'
-          },
-          {
-            _id: '2', 
-            propertyId: { title: 'Student House Near University', images: ['https://example.com/img2.jpg'] },
-            studentId: { firstName: 'Fatima', lastName: 'El Mansouri', email: 'fatima@example.com' },
-            startDate: '2025-01-15',
-            endDate: '2025-06-15',
-            monthlyRent: 1000,
-            totalAmount: 1500,
-            status: 'Confirmed',
-            paymentStatus: 'Paid',
-            createdAt: '2025-01-10T09:15:00.000Z'
-          }
-        ]
-      });
-      setBookings(response.data);
+      const statusToFetch = selectedTab === 'all' ? undefined : selectedTab;
+      const response = await landlordService.getMyBookings(statusToFetch);
+      
+      // Handle the paginated response structure from BookingsResponse
+      if (response && response.data && Array.isArray(response.data.bookings)) {
+        setBookings(response.data.bookings);
+      } else {
+        setBookings([]); // Ensure bookings is always an array
+      }
+
     } catch (e: any) {
       setError(e.message || 'Failed to load bookings');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, selectedTab]);
 
   useEffect(() => {
     fetchBookings();
@@ -96,8 +63,7 @@ export default function BookingManagementScreen() {
 
   const handleApproveBooking = async (bookingId: string) => {
     try {
-      // Mock API call - would be implemented in landlordService
-      await Promise.resolve();
+      await landlordService.approveBooking(bookingId);
       console.log('Approve booking:', bookingId);
       fetchBookings(); // Refresh list
     } catch (e: any) {
@@ -107,8 +73,7 @@ export default function BookingManagementScreen() {
 
   const handleRejectBooking = async (bookingId: string) => {
     try {
-      // Mock API call - would be implemented in landlordService
-      await Promise.resolve();
+      await landlordService.rejectBooking(bookingId, 'Rejected by landlord');
       console.log('Reject booking:', bookingId);
       fetchBookings(); // Refresh list
     } catch (e: any) {
@@ -117,21 +82,23 @@ export default function BookingManagementScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Pending': return currentTheme.colors.warning;
-      case 'Confirmed': return currentTheme.colors.success;
-      case 'Active': return currentTheme.colors.primary;
-      case 'Completed': return currentTheme.colors.secondary;
-      case 'Cancelled': return currentTheme.colors.error;
+    switch (status.toLowerCase()) {
+      case 'pending': return currentTheme.colors.warning;
+      case 'confirmed': return currentTheme.colors.success;
+      case 'active': return currentTheme.colors.primary;
+      case 'completed': return currentTheme.colors.secondary;
+      case 'cancelled': return currentTheme.colors.error;
       default: return currentTheme.colors.text.secondary;
     }
   };
 
   const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'Paid': return currentTheme.colors.success;
-      case 'Pending': return currentTheme.colors.warning;
-      case 'Failed': return currentTheme.colors.error;
+    switch (status.toLowerCase()) {
+      case 'paid': return currentTheme.colors.success;
+      case 'pending': return currentTheme.colors.warning;
+      case 'partial': return currentTheme.colors.warning;
+      case 'failed': return currentTheme.colors.error;
+      case 'refunded': return currentTheme.colors.secondary;
       default: return currentTheme.colors.text.secondary;
     }
   };
@@ -145,15 +112,27 @@ export default function BookingManagementScreen() {
         
         {/* Tab Navigation */}
         <HStack space="xs" style={{ marginBottom: currentTheme.spacing.md }}>
-          {(['pending', 'active', 'completed', 'all'] as const).map((tab) => (
+          {(['pending', 'confirmed', 'completed', 'cancelled', 'all'] as const).map((tab) => (
             <Button
               key={tab}
               action={selectedTab === tab ? 'primary' : 'secondary'}
               size="sm"
-              style={{ flex: 1 }}
+              style={{ 
+                flex: 1,
+                paddingVertical: currentTheme.spacing.sm,
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: 40
+              }}
               onPress={() => setSelectedTab(tab)}
             >
-              <ButtonText>{tab.charAt(0).toUpperCase() + tab.slice(1)}</ButtonText>
+              <ButtonText style={{ 
+                textAlign: 'center',
+                fontSize: 12,
+                fontWeight: selectedTab === tab ? '600' : '400'
+              }}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </ButtonText>
             </Button>
           ))}
         </HStack>
@@ -180,12 +159,12 @@ export default function BookingManagementScreen() {
             showsVerticalScrollIndicator={false}
           >
             <VStack space="md">
-              {filteredBookings.length === 0 ? (
+              {bookings.length === 0 ? (
                 <Text size="md" style={{ color: currentTheme.colors.text.secondary, textAlign: 'center', marginTop: currentTheme.spacing.xl }}>
                   No {selectedTab} bookings found.
                 </Text>
               ) : (
-                filteredBookings.map((booking: any) => (
+                bookings.map((booking: Booking) => ( // Use Booking type here
                   <BookingCard
                     key={booking._id}
                     booking={booking}
@@ -214,11 +193,20 @@ function BookingCard({
   onViewDetails, 
   getStatusColor, 
   getPaymentStatusColor 
-}: any) {
+}: { booking: Booking; [key: string]: any }) { // Add type for booking prop
   return (
-    <Card style={{ padding: currentTheme.spacing.md, borderRadius: currentTheme.borderRadius.card }}>
+    <Card style={{ 
+      padding: currentTheme.spacing.md, 
+      borderRadius: currentTheme.borderRadius.card,
+      backgroundColor: currentTheme.colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3
+    }}>
       <Pressable onPress={onViewDetails} accessible accessibilityRole="button">
-        <VStack space="sm">
+        <VStack space="md">
           {/* Header with property and status */}
           <HStack style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <VStack space="xs" style={{ flex: 1 }}>
@@ -232,37 +220,94 @@ function BookingCard({
                 {booking.studentId?.email}
               </Text>
             </VStack>
-            <VStack space="xs" style={{ alignItems: 'flex-end' }}>
+            <HStack space="xs" style={{ alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <Badge variant="solid" style={{ backgroundColor: getStatusColor(booking.status) }}>
-                <Text size="xs" style={{ color: 'white' }}>{booking.status}</Text>
+                <Text size="xs" style={{ color: 'white', fontWeight: '600' }}>{booking.status}</Text>
               </Badge>
               <Badge variant="outline" style={{ borderColor: getPaymentStatusColor(booking.paymentStatus) }}>
-                <Text size="xs" style={{ color: getPaymentStatusColor(booking.paymentStatus) }}>
+                <Text size="xs" style={{ color: getPaymentStatusColor(booking.paymentStatus), fontWeight: '500' }}>
                   {booking.paymentStatus}
                 </Text>
               </Badge>
-            </VStack>
+            </HStack>
           </HStack>
 
-          {/* Booking details */}
+          {/* Payment and Financial Details */}
           <Divider style={{ marginVertical: currentTheme.spacing.xs }} />
-          <HStack style={{ justifyContent: 'space-between' }}>
-            <VStack space="xs">
-              <Text size="sm" style={{ color: currentTheme.colors.text.secondary }}>Duration</Text>
-              <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
-                {booking.startDate} - {booking.endDate}
-              </Text>
-            </VStack>
-            <VStack space="xs" style={{ alignItems: 'flex-end' }}>
-              <Text size="sm" style={{ color: currentTheme.colors.text.secondary }}>Total Amount</Text>
-              <Text size="lg" style={{ fontWeight: '700', color: currentTheme.colors.primary }}>
-                {booking.totalAmount} MAD
-              </Text>
-            </VStack>
-          </HStack>
+          <VStack space="sm">
+            <HStack style={{ justifyContent: 'space-between' }}>
+              <VStack space="xs" style={{ flex: 1 }}>
+                <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Monthly Rent</Text>
+                <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                  {booking.monthlyRent} MAD
+                </Text>
+              </VStack>
+              <VStack space="xs" style={{ flex: 1, alignItems: 'center' }}>
+                <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Security Deposit</Text>
+                <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                  {booking.securityDeposit} MAD
+                </Text>
+              </VStack>
+              <VStack space="xs" style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Total Amount</Text>
+                <Text size="lg" style={{ fontWeight: '700', color: currentTheme.colors.primary }}>
+                  {booking.totalAmount} MAD
+                </Text>
+              </VStack>
+            </HStack>
+            
+            {/* Payment Method and Duration */}
+            <HStack style={{ justifyContent: 'space-between', marginTop: currentTheme.spacing.xs }}>
+              <VStack space="xs" style={{ flex: 1 }}>
+                <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Payment Method</Text>
+                <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                  {booking.paymentMethod}
+                </Text>
+              </VStack>
+              <VStack space="xs" style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Duration</Text>
+                <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
+                  {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
+                </Text>
+              </VStack>
+            </HStack>
+          </VStack>
+
+          {/* Payment Verification Status */}
+          {booking.paymentVerification && (
+            <>
+              <Divider style={{ marginVertical: currentTheme.spacing.xs }} />
+              <HStack style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>
+                  Payment Verification
+                </Text>
+                <Badge 
+                  variant="outline" 
+                  style={{ 
+                    borderColor: booking.paymentVerification.status === 'Verified' ? 
+                      currentTheme.colors.success : 
+                      booking.paymentVerification.status === 'Rejected' ? 
+                        currentTheme.colors.error : 
+                        currentTheme.colors.warning
+                  }}
+                >
+                  <Text size="xs" style={{ 
+                    color: booking.paymentVerification.status === 'Verified' ? 
+                      currentTheme.colors.success : 
+                      booking.paymentVerification.status === 'Rejected' ? 
+                        currentTheme.colors.error : 
+                        currentTheme.colors.warning,
+                    fontWeight: '500'
+                  }}>
+                    {booking.paymentVerification.status}
+                  </Text>
+                </Badge>
+              </HStack>
+            </>
+          )}
 
           {/* Action buttons for pending bookings */}
-          {booking.status === 'Pending' && (
+          {booking.status.toLowerCase() === 'pending' && (
             <HStack space="sm" style={{ marginTop: currentTheme.spacing.md }}>
               <Button 
                 action="secondary" 
@@ -291,17 +336,67 @@ function BookingCard({
           )}
 
           {/* Quick actions for other statuses */}
-          {booking.status !== 'Pending' && (
-            <HStack space="sm" style={{ marginTop: currentTheme.spacing.md, justifyContent: 'flex-end' }}>
-              <Button action="secondary" size="sm" onPress={onViewDetails}>
-                <ButtonText>View Details</ButtonText>
-              </Button>
-              {booking.status === 'Confirmed' && (
-                <Button action="primary" size="sm">
-                  <ButtonText>Contact Tenant</ButtonText>
+          {booking.status.toLowerCase() !== 'pending' && (
+            <VStack space="sm" style={{ marginTop: currentTheme.spacing.md }}>
+              {/* Primary action row */}
+              <HStack space="sm" style={{ justifyContent: 'space-between' }}>
+                <Button 
+                  action="secondary" 
+                  variant="outline" 
+                  size="sm" 
+                  style={{ flex: 1 }}
+                  onPress={onViewDetails}
+                >
+                  <ButtonText>View Details</ButtonText>
                 </Button>
+                
+                {booking.status.toLowerCase() === 'confirmed' && (
+                  <Button 
+                    action="primary" 
+                    size="sm" 
+                    style={{ flex: 1 }}
+                  >
+                    <ButtonText>Contact Tenant</ButtonText>
+                  </Button>
+                )}
+                
+                {booking.status.toLowerCase() === 'completed' && booking.paymentStatus === 'paid' && (
+                  <Button 
+                    action="positive" 
+                    size="sm" 
+                    style={{ flex: 1 }}
+                  >
+                    <ButtonText>Generate Receipt</ButtonText>
+                  </Button>
+                )}
+              </HStack>
+
+              {/* Secondary actions row for payment proof and additional options */}
+              {(booking.paymentProof || booking.status.toLowerCase() === 'completed') && (
+                <HStack space="sm" style={{ justifyContent: 'center' }}>
+                  {booking.paymentProof && (
+                    <Button 
+                      action="secondary" 
+                      variant="outline" 
+                      size="sm"
+                      style={{ minWidth: 120 }}
+                    >
+                      <ButtonText>View Proof</ButtonText>
+                    </Button>
+                  )}
+                  {booking.status.toLowerCase() === 'completed' && (
+                    <Button 
+                      action="secondary" 
+                      variant="outline" 
+                      size="sm"
+                      style={{ minWidth: 120 }}
+                    >
+                      <ButtonText>Download Contract</ButtonText>
+                    </Button>
+                  )}
+                </HStack>
               )}
-            </HStack>
+            </VStack>
           )}
         </VStack>
       </Pressable>
