@@ -17,6 +17,7 @@ import { notificationService } from '../services/notificationService';
 import { authService } from '../services/authService';
 import { Image as CustomImage } from '../../components/ui/image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { landlordService } from '../services/landlordService';
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -55,26 +56,29 @@ export default function DashboardScreen() {
     try {
       const storedUser = await authService.getStoredUserData();
       setUser(storedUser);
-      console.log('👤 [USER DATA]', storedUser);
+      // console.log('👤 [USER DATA]', storedUser);
 
       if (storedUser?.role === 'Landlord') {
         // Fetch landlord-specific data
-        const [bs, ns] = await Promise.all([
-          bookingService.getBookings(), // This will be replaced with landlord bookings
+        const [propsRes, bookingsRes, ns] = await Promise.all([
+          landlordService.getMyProperties(),
+          landlordService.getMyBookings(),
           notificationService.getNotifications(1, 5),
         ]);
-        
-        // Get properties from API in future - for now use empty array
-        setProperties([]);
-        setBookings(bs || []);
+
+        const properties = propsRes?.data?.properties || [];
+        const bookings = bookingsRes?.data?.bookings || [];
+        // console.log('🏠 [LANDLORD Bookings]', bookings);
+        setProperties(properties);
+        setBookings(bookings);
         setNotifications(ns.notifications || ns || []);
-        
+
         // Filter pending bookings as tenant requests
-        const pendingBookings = (bs || []).filter((booking: any) => 
-          booking.status === 'pending' || booking.status === 'confirmed'
+        const pendingBookings = bookings.filter((booking: any) =>
+          booking.status === 'Pending' || booking.status === 'Confirmed'
         );
         setTenantRequests(pendingBookings);
-        console.log('📋 [TENANT REQUESTS]', pendingBookings);
+        // console.log('📋 [TENANT REQUESTS]', pendingBookings);
       } else {
         // Original student data fetching
         const [ms, bs, ns] = await Promise.all([
@@ -208,7 +212,7 @@ export default function DashboardScreen() {
               action="primary"
               size="md"
               style={{ borderRadius: currentTheme.borderRadius.button }}
-              onPress={() => goTo(isLandlord ? 'PropertyCreate' : 'PropertySearch')}
+              onPress={() => goTo(isLandlord ? 'PropertyCreate' : 'PropertyDetails')}
             >
               <ButtonText size="md">{isLandlord ? 'List Property' : 'Find Properties'}</ButtonText>
             </Button>
@@ -252,7 +256,7 @@ export default function DashboardScreen() {
                   <Card style={{ flex: 1, padding: currentTheme.spacing.md, alignItems: 'center', backgroundColor: '#F0FDF4' }}>
                     <MaterialCommunityIcons name="calendar-check" size={32} color="#16A34A" />
                     <Text size="2xl" style={{ fontWeight: '700', color: '#16A34A', marginTop: 8 }}>
-                      {bookings.filter(b => b.status === 'confirmed' || b.status === 'active').length}
+                      {bookings.filter(b => b.status === 'Confirmed').length}
                     </Text>
                     <Text size="sm" style={{ color: currentTheme.colors.text.secondary, textAlign: 'center' }}>
                       Active Bookings
@@ -263,7 +267,7 @@ export default function DashboardScreen() {
                   <Card style={{ flex: 1, padding: currentTheme.spacing.md, alignItems: 'center', backgroundColor: '#FEF3C7' }}>
                     <MaterialCommunityIcons name="clock-outline" size={32} color="#D97706" />
                     <Text size="2xl" style={{ fontWeight: '700', color: '#D97706', marginTop: 8 }}>
-                      {tenantRequests.length}
+                      {bookings.filter(b => b.status === 'Pending').length}
                     </Text>
                     <Text size="sm" style={{ color: currentTheme.colors.text.secondary, textAlign: 'center' }}>
                       Pending Requests
@@ -299,7 +303,6 @@ export default function DashboardScreen() {
                     properties.slice(0, 3).map((property, idx) => {
                       const imageUrl = property.images && property.images[0] ? { uri: property.images[0] } : require('@/assets/images/placeholder.jpg');
                       const bookingCount = bookings.filter(b => b.propertyId === property._id).length;
-                      
                       return (
                         <Pressable
                           key={property._id}
@@ -312,7 +315,7 @@ export default function DashboardScreen() {
                             borderLeftWidth: 4,
                             borderLeftColor: property.status === 'available' ? '#16A34A' : '#D97706'
                           }}
-                          onPress={() => goTo('PropertyDetails', { id: property._id })}
+                          onPress={() => navigation.navigate(isLandlord ? 'Properties' : 'PropertySearch', { screen: 'PropertyDetails', params: { id: property._id } })}
                         >
                           <HStack space="md" style={{ alignItems: 'center' }}>
                             <Box style={{ width: 60, height: 60, borderRadius: 8, overflow: 'hidden', backgroundColor: currentTheme.colors.card }}>
@@ -493,21 +496,31 @@ export default function DashboardScreen() {
                 <Skeleton height={18} width={125} />
               </>
             ) : bookings.length > 0 ? (
-              bookings.slice(0, 3).map((booking, idx) => (
-                <Pressable
-                  key={booking.id || idx}
-                  style={{ marginBottom: currentTheme.spacing.sm, padding: 8, borderRadius: 8, backgroundColor: currentTheme.colors.input, elevation: 2 }}
-                  accessible
-                  accessibilityRole="button"
-                  accessibilityLabel={`View booking ${idx + 1}`}
-                  onPress={() => goTo('BookingDetails', { id: booking.id })}
-                >
-                  <Box>
-                    <Text size="md" style={{ color: currentTheme.colors.text.primary, fontWeight: '600' }}>{booking.property?.title || 'Booking'}</Text>
-                    <Text size="sm" style={{ color: currentTheme.colors.text.secondary }}>{booking.status || ''}</Text>
-                  </Box>
-                </Pressable>
-              ))
+              bookings.slice(0, 3).map((booking, idx) => {
+                // For landlord, booking._id is the id, propertyId is populated property, studentId is populated student
+                const property = booking.propertyId || {};
+                const student = booking.studentId || {};
+                return (
+                  <Pressable
+                    key={booking._id || idx}
+                    style={{ marginBottom: currentTheme.spacing.sm, padding: 8, borderRadius: 8, backgroundColor: currentTheme.colors.input, elevation: 2 }}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel={`View booking ${idx + 1}`}
+                    onPress={() => navigation.navigate('Bookings', { screen: 'BookingDetails', params: { id: booking._id } })}
+                  >
+                    <Box>
+                      <Text size="md" style={{ color: currentTheme.colors.text.primary, fontWeight: '600' }}>{property.title || 'Booking'}</Text>
+                      <Text size="sm" style={{ color: currentTheme.colors.text.secondary }}>
+                        Status: {booking.status || ''} | Tenant: {student.firstName ? `${student.firstName} ${student.lastName}` : ''}
+                      </Text>
+                      <Text size="sm" style={{ color: currentTheme.colors.text.secondary }}>
+                        {`From: ${booking.startDate ? new Date(booking.startDate).toLocaleDateString() : ''} To: ${booking.endDate ? new Date(booking.endDate).toLocaleDateString() : ''}`}
+                      </Text>
+                    </Box>
+                  </Pressable>
+                );
+              })
             ) : (
               <Text size="md" style={{ color: currentTheme.colors.text.secondary }}>
                 No active bookings yet.
