@@ -13,6 +13,7 @@ import { useSelector } from '../store/hooks';
 import { useAuthInitialization } from '../hooks/useAuthInitialization';
 import { Spinner } from '../../components/ui/spinner';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import CustomDrawerContent from '../../components/navigation/CustomDrawerContent';
 import PropertySearchScreen from '../property/PropertySearchScreen';
 import MatchesScreen from '../matching/MatchesScreen';
 import BookingsScreen from '../booking/BookingsScreen';
@@ -60,8 +61,8 @@ const Tab = createBottomTabNavigator();
 const PropertyStack = createStackNavigator();
 function PropertyStackNavigator() {
   return (
-    <PropertyStack.Navigator screenOptions={{ headerShown: false }}>
-      <PropertyStack.Screen name="PropertySearch" component={PropertySearchScreen} />
+    <PropertyStack.Navigator screenOptions={{ headerShown: true }}>
+      <PropertyStack.Screen name="PropertySearch" component={PropertySearchScreen} options={{ headerShown: false }} />
       <PropertyStack.Screen name="PropertyDetails" component={PropertyDetailsScreen} />
       <PropertyStack.Screen name="PropertyMap" component={PropertyMapScreen} />
       <PropertyStack.Screen name="PropertyCreate" component={PropertyCreateScreen} />
@@ -74,8 +75,8 @@ function PropertyStackNavigator() {
 const MatchStack = createStackNavigator();
 function MatchStackNavigator() {
   return (
-    <MatchStack.Navigator screenOptions={{ headerShown: false }}>
-      <MatchStack.Screen name="Matches" component={MatchesScreen} />
+    <MatchStack.Navigator screenOptions={{ headerShown: true }}>
+      <MatchStack.Screen name="Matches" component={MatchesScreen} options={{ headerShown: false }} />
       <MatchStack.Screen name="MatchDetails" component={MatchDetailsScreen} />
       <MatchStack.Screen name="RoommatePreferences" component={RoommatePreferencesScreen} />
     </MatchStack.Navigator>
@@ -88,17 +89,17 @@ function BookingStackNavigator({ route }: any) {
   const isLandlord = user?.role === 'Landlord';
   
   return (
-    <BookingStack.Navigator screenOptions={{ headerShown: false }}>
+    <BookingStack.Navigator screenOptions={{ headerShown: true }}>
       {isLandlord ? (
         <>
-          <BookingStack.Screen name="BookingManagement" component={BookingManagementScreen} />
+          <BookingStack.Screen name="BookingManagement" component={BookingManagementScreen} options={{ headerShown: false }} />
           <BookingStack.Screen name="BookingDetails" component={BookingDetailsScreen} />
           <BookingStack.Screen name="BookingPaymentScreen" component={BookingPaymentScreen} />
           <BookingStack.Screen name="DisputeScreen" component={DisputeScreen} />
         </>
       ) : (
         <>
-          <BookingStack.Screen name="Bookings" component={BookingsScreen} />
+          <BookingStack.Screen name="Bookings" component={BookingsScreen} options={{ headerShown: false }} />
           <BookingStack.Screen name="BookingCreate" component={BookingCreateScreen} />
           <BookingStack.Screen name="BookingDetails" component={BookingDetailsScreen} />
           <BookingStack.Screen name="RoommateInvite" component={RoommateInviteScreen} />
@@ -113,8 +114,8 @@ function BookingStackNavigator({ route }: any) {
 const ProfileStack = createStackNavigator();
 function ProfileStackNavigator() {
   return (
-    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
-      <ProfileStack.Screen name="Profile" component={ProfileScreen} />
+    <ProfileStack.Navigator screenOptions={{ headerShown: true }}>
+      <ProfileStack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen name="ViewUserProfile" component={ViewUserProfileScreen} />
     </ProfileStack.Navigator>
   );
@@ -124,8 +125,8 @@ function MainTabs({ navigation }: any) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerLeft: () => (
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={{ marginLeft: 16 }}>
+        headerRight: () => (
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={{ marginRight: 16 }}>
             <MaterialCommunityIcons name="menu" size={28} color="#6C63FF" />
           </TouchableOpacity>
         ),
@@ -160,8 +161,8 @@ function LandlordTabs({ navigation }: any) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerLeft: () => (
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={{ marginLeft: 16 }}>
+        headerRight: () => (
+          <TouchableOpacity onPress={() => navigation.openDrawer()} style={{ marginRight: 16 }}>
             <MaterialCommunityIcons name="menu" size={28} color="#6C63FF" />
           </TouchableOpacity>
         ),
@@ -198,8 +199,8 @@ function LandlordTabs({ navigation }: any) {
 const ChatStack = createStackNavigator();
 function ChatStackNavigator() {
   return (
-    <ChatStack.Navigator screenOptions={{ headerShown: false }}>
-      <ChatStack.Screen name="ChatScreen" component={ChatScreen} />
+    <ChatStack.Navigator screenOptions={{ headerShown: true }}>
+      <ChatStack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
       <ChatStack.Screen name="DirectMessage" component={DirectMessageScreen} />
     </ChatStack.Navigator>
   );
@@ -226,10 +227,42 @@ const MainAppNavigator: React.FC = () => {
           {isAuthenticated ? (
             <Drawer.Navigator
               initialRouteName={isLandlord ? 'LandlordTabs' : 'MainTabs'}
+              drawerContent={props => <CustomDrawerContent {...props} />}
               screenOptions={{
                 headerShown: false,
+                swipeEdgeWidth: 40,
+                drawerPosition: 'right',
                 drawerActiveTintColor: '#6C63FF',
                 drawerInactiveTintColor: '#666',
+                drawerStyle: {
+                  backgroundColor: '#f8fafc',
+                  borderTopLeftRadius: 32,
+                  borderBottomLeftRadius: 32,
+                  width: 290,
+                  shadowColor: '#000',
+                  shadowOffset: { width: -4, height: 0 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 12,
+                  elevation: 12,
+                },
+                drawerType: 'slide',
+                overlayColor: 'rgba(44, 62, 80, 0.15)',
+                drawerLabelStyle: {
+                  fontWeight: '600',
+                  fontSize: 17,
+                  color: '#374151',
+                  marginLeft: 8,
+                },
+                drawerItemStyle: {
+                  borderRadius: 12,
+                  marginVertical: 4,
+                  marginHorizontal: 8,
+                  paddingVertical: 6,
+                  paddingHorizontal: 8,
+                },
+                drawerIcon: ({ color, size }) => (
+                  <MaterialCommunityIcons name="chevron-left" size={size} color={color} />
+                ),
               }}
             >
               {isLandlord ? (
