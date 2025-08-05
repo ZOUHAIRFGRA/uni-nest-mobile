@@ -19,7 +19,11 @@ export class StorageService {
 
   static async getAuthToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      console.log("ℹ️ℹ️ℹ️[STORAGE] Getting auth token");
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+
+      console.log("ℹ️ℹ️ℹ️[STORAGE] Auth token retrieved:", token);
+      return token;
     } catch (error) {
       console.error('Error getting auth token:', error);
       return null;

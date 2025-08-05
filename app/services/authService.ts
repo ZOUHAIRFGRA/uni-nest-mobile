@@ -10,24 +10,28 @@ import {
 
 export class AuthService {
   /**
-   * Login user with email and password - Updated for API v2
+   * Login user with email and password
    */
   async login(credentials: LoginCredentials): Promise<{ user: User; message: string }> {
     try {
-      const response = await apiClient.post<{ user: User; message: string }>(
+      const response = await apiClient.post<{ user: User; token: string; message: string }>(
         API_ENDPOINTS.AUTH.LOGIN,
         credentials
       );
 
       // API client returns data directly, cast to expected type
-      const loginData = response as unknown as { user: User; message: string };
+      const loginData = response as unknown as { user: User; token: string; message: string };
 
       if (loginData && loginData.user) {
-        // Note: API v2 uses HTTP-only cookies for JWT, no token in response
+        // Save both token and user data
+        if (loginData.token) {
+          await apiClient.saveToken(loginData.token);
+          await StorageService.saveAuthToken(loginData.token);
+        }
         await StorageService.saveUserData(loginData.user);
       }
 
-      return loginData;
+      return { user: loginData.user, message: loginData.message };
     } catch (error) {
       throw error;
     }
@@ -322,7 +326,7 @@ export class AuthService {
    */
   async updatePreferencesOnBackend(preferences: Record<string, any>, lifestyle: Record<string, any>): Promise<void> {
     try {
-      const response = await apiClient.put(API_ENDPOINTS.AUTH.UPDATE_PROFILE, { preferences, lifestyle });
+      await apiClient.put(API_ENDPOINTS.AUTH.UPDATE_PROFILE, { preferences, lifestyle });
       // Optionally update local storage
       await this.saveUserPreferences({ ...preferences, ...lifestyle });
     } catch (error) {
@@ -335,11 +339,18 @@ export class AuthService {
    * Initialize auth state from storage on app start
    */
   /**
-   * Initialize auth state - Updated for API v2 (no token, uses HTTP-only cookies)
+   * Initialize auth state from storage on app start
    */
   async initializeAuthState(): Promise<{ user: User | null }> {
     try {
       const user = await StorageService.getUserData();
+      const token = await StorageService.getAuthToken();
+      
+      // If we have both user and token, we're authenticated
+      if (user && token) {
+        // Set the token in apiClient for future requests
+        await apiClient.saveToken(token);
+      }
       
       return { user };
     } catch (error) {

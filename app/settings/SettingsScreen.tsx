@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme, ScrollView, Modal, TouchableOpacity } from 'react-native';
+import { useColorScheme, ScrollView, Modal } from 'react-native';
 import { getTheme } from '../utils/theme';
 import { VStack } from '../../components/ui/vstack';
 import { Text } from '../../components/ui/text';
@@ -10,14 +10,18 @@ import { Input, InputField } from '../../components/ui/input';
 import { Divider } from '../../components/ui/divider';
 import { Spinner } from '../../components/ui/spinner';
 import { notificationService } from '../services/notificationService';
-import StorageService from '../services/storageService';
+import { StorageService } from '../services/storageService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { authService } from '../services/authService';
-import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from '../store/hooks';
+import { logoutUser, selectAuthLoading } from '../store/slices/authSlice';
+import { useNotifications } from '../hooks/useNotificationsSimple.js';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const currentTheme = getTheme(colorScheme || 'light');
+  const dispatch = useDispatch();
+  const authLoading = useSelector(selectAuthLoading);
+  const { sendTestNotification, isConnected } = useNotifications();
 
   const [theme, setTheme] = useState<'light' | 'dark'>(colorScheme || 'light');
   const [language, setLanguage] = useState('en');
@@ -28,9 +32,8 @@ export default function SettingsScreen() {
   const [success, setSuccess] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeCountdown, setUpgradeCountdown] = useState(10);
+  const [testingNotification, setTestingNotification] = useState(false);
   const upgradeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-  const navigation = useNavigation<any>();
-  const [loggingOut, setLoggingOut] = useState(false);
 
   // Countdown for upgrade modal
   useEffect(() => {
@@ -62,7 +65,7 @@ export default function SettingsScreen() {
     try {
       await notificationService.markAllAsRead();
       setSuccess(true);
-    } catch (e) {
+    } catch {
       setError('Failed to mark all as read');
     }
   };
@@ -105,15 +108,26 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
-    setLoggingOut(true);
     setError(null);
     try {
-      await authService.logout();
-      // No navigation.reset needed; auth state will handle redirect
+      await dispatch(logoutUser());
+      // Navigation will happen automatically via Redux state change
     } catch (e: any) {
       setError(e.message || 'Failed to logout');
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setTestingNotification(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await sendTestNotification();
+      setSuccess(true);
+    } catch (e: any) {
+      setError(e.message || 'Failed to send test notification');
     } finally {
-      setLoggingOut(false);
+      setTestingNotification(false);
     }
   };
 
@@ -179,6 +193,18 @@ export default function SettingsScreen() {
               {/* Notifications */}
               <SettingsSection title="Notifications">
                 <VStack space="sm">
+                  {/* Connection Status */}
+                  <Box style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <MaterialCommunityIcons 
+                      name={isConnected ? "wifi" : "wifi-off"} 
+                      size={16} 
+                      color={isConnected ? currentTheme.colors.secondary : currentTheme.colors.error} 
+                    />
+                    <Text size="sm" style={{ marginLeft: 8, color: currentTheme.colors.text.secondary }}>
+                      Real-time: {isConnected ? 'Connected' : 'Disconnected'}
+                    </Text>
+                  </Box>
+                  
                   <Box style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <Text size="md" style={{ flex: 1, color: currentTheme.colors.text.secondary }}>Email</Text>
                     <Button action={notificationPrefs.email ? 'primary' : 'secondary'} size="sm" onPress={() => setNotificationPrefs((p: any) => ({ ...p, email: !p.email }))}>
@@ -203,8 +229,27 @@ export default function SettingsScreen() {
                       <ButtonText>{notificationPrefs.marketing ? 'On' : 'Off'}</ButtonText>
                     </Button>
                   </Box>
-                  <Button action="secondary" onPress={markAllAsRead} style={{ marginTop: 8 }}>
+                  
+                  <Divider style={{ marginVertical: 8 }} />
+                  
+                  <Button action="secondary" onPress={markAllAsRead} style={{ marginBottom: 8 }}>
                     <ButtonText>Mark All as Read</ButtonText>
+                  </Button>
+                  
+                  <Button 
+                    action="primary" 
+                    variant="outline" 
+                    onPress={handleTestNotification} 
+                    disabled={testingNotification}
+                    style={{ 
+                      marginBottom: 8,
+                      borderColor: currentTheme.colors.primary,
+                      backgroundColor: 'transparent',
+                    }}
+                  >
+                    <ButtonText style={{ color: currentTheme.colors.primary }}>
+                      {testingNotification ? '🧪 Testing...' : '🧪 Test Notification'}
+                    </ButtonText>
                   </Button>
                 </VStack>
               </SettingsSection>
@@ -219,8 +264,8 @@ export default function SettingsScreen() {
                 <Button action="secondary" variant="outline"  onPress={() => {/* navigate to delete account */}} style={{ marginBottom: 8, backgroundColor: currentTheme.colors.error}}>
                   <ButtonText style={{ color: currentTheme.colors.text.primary }}>Delete Account</ButtonText>
                 </Button>
-                <Button action="primary" onPress={handleLogout} disabled={loggingOut} style={{ marginTop: 8 }}>
-                  <ButtonText>{loggingOut ? 'Logging out...' : 'Logout'}</ButtonText>
+                <Button action="primary" onPress={handleLogout} disabled={authLoading} style={{ marginTop: 8 }}>
+                  <ButtonText>{authLoading ? 'Logging out...' : 'Logout'}</ButtonText>
                 </Button>
               </SettingsSection>
               <Button action="primary" onPress={handleSave} disabled={saving} style={{ marginTop: currentTheme.spacing.lg }}>

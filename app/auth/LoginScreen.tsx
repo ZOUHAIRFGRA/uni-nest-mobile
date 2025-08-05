@@ -9,20 +9,27 @@ import { Input, InputField } from '../../components/ui/input';
 import { Box } from '../../components/ui/box';
 import { Link, LinkText } from '../../components/ui/link';
 import { useNavigation } from '@react-navigation/native';
-import { authService } from '../services/authService';
+import { useDispatch, useSelector } from '../store/hooks';
+import { loginUser, selectAuthLoading, selectAuthError, clearError } from '../store/slices/authSlice';
 import { AlertCircle, Eye, EyeOff, Lock, X } from 'lucide-react-native';
 import {  getTheme } from '../utils/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
   const colorScheme = useColorScheme();
   const currentTheme = getTheme(colorScheme || 'light');
+  
+  // Redux state
+  const loading = useSelector(selectAuthLoading);
+  const authError = useSelector(selectAuthError);
+  
+  // Local state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -69,23 +76,27 @@ export default function LoginScreen() {
   const isValidEmail = (val: string) => /.+@.+\..+/.test(val);
 
   const handleLogin = async () => {
-    setError(null);
+    setValidationError(null);
     animateButton();
+    
     if (!email || !password) {
-      setError('Email and password are required.');
+      setValidationError('Email and password are required.');
       return;
     }
     if (!isValidEmail(email)) {
-      setError('Please enter a valid email address.');
+      setValidationError('Please enter a valid email address.');
       return;
     }
-    setLoading(true);
+    
     try {
-      await authService.login({ email, password });
+      const result = await dispatch(loginUser({ email, password }));
+      if (loginUser.fulfilled.match(result)) {
+        // Login successful - navigation will happen automatically via Redux state change
+        console.log('Login successful');
+      }
     } catch (err: any) {
-      setError(err?.message || 'Login failed. Please try again.');
-    } finally {
-    setLoading(false);
+      // Error handling is managed by Redux
+      console.error('Login error:', err);
     }
   };
 
@@ -279,9 +290,12 @@ export default function LoginScreen() {
                 >
                   Your credentials are encrypted and secure
                 </Text>
-                {error && (
+                {(authError || validationError) && (
                   <TouchableOpacity
-                    onPress={() => setError(null)}
+                    onPress={() => {
+                      setValidationError(null);
+                      if (authError) dispatch(clearError());
+                    }}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -291,7 +305,7 @@ export default function LoginScreen() {
                     }}
                     accessible
                     accessibilityRole="alert"
-                    accessibilityLabel={error}
+                    accessibilityLabel={validationError || authError || undefined}
                     accessibilityHint="Tap to dismiss error"
                   >
                     <AlertCircle
@@ -308,7 +322,7 @@ export default function LoginScreen() {
                       }}
                       allowFontScaling
                     >
-                      {error}
+                      {validationError || authError}
                     </Text>
                     <X size={20} color={currentTheme.colors.error} />
                   </TouchableOpacity>
