@@ -64,27 +64,8 @@ export default function DashboardScreen() {
           notificationService.getNotifications(1, 5),
         ]);
         
-        // For now, use mock properties data - replace with actual API call later
-        const mockProperties = [
-          {
-            _id: '1',
-            title: 'Modern Student Apartment',
-            address: 'Rabat, Morocco',
-            price: 1200,
-            status: 'available',
-            images: [],
-          },
-          {
-            _id: '2', 
-            title: 'Cozy Studio Near University',
-            address: 'Casablanca, Morocco',
-            price: 800,
-            status: 'occupied',
-            images: [],
-          }
-        ];
-        
-        setProperties(mockProperties);
+        // Get properties from API in future - for now use empty array
+        setProperties([]);
         setBookings(bs || []);
         setNotifications(ns.notifications || ns || []);
         
@@ -93,8 +74,6 @@ export default function DashboardScreen() {
           booking.status === 'pending' || booking.status === 'confirmed'
         );
         setTenantRequests(pendingBookings);
-        
-        console.log('🏠 [LANDLORD PROPERTIES]', mockProperties);
         console.log('📋 [TENANT REQUESTS]', pendingBookings);
       } else {
         // Original student data fetching
@@ -104,7 +83,7 @@ export default function DashboardScreen() {
           notificationService.getNotifications(1, 3),
         ]);
         
-        const matches = ms.data || [];
+        const matches = ms.data?.matches || [];
         const bookings = bs;
         const notifications = ns.notifications || [];
         
