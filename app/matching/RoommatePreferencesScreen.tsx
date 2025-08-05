@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView } from 'react-native';
+import { ScrollView, useColorScheme } from 'react-native';
 import { getTheme } from '../utils/theme';
 import { VStack } from '../../components/ui/vstack';
 import { Text } from '../../components/ui/text';
 import { Box } from '../../components/ui/box';
 import { Button, ButtonText } from '../../components/ui/button';
 import { Picker } from '@react-native-picker/picker';
-import { useNavigation, useColorScheme } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { HStack } from '../../components/ui/hstack';
 import { authService } from '../services/authService';
 

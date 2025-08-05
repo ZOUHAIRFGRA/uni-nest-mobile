@@ -73,8 +73,12 @@ export interface Property {
   price: number;
   currency: string;
   location: Location;
-  roomType: 'single' | 'shared' | 'studio' | 'apartment';
-  amenities: string[];
+  address: string;
+  maxTenants: number;
+  distanceToUniversity: number;
+  distanceToBusStop: number;
+  roomType: 'single' | 'shared' | 'studio' | 'apartment' | 'Private';
+  amenities: string[] | any;
   images: string[];
   landlordId: string;
   landlord?: User;
@@ -84,6 +88,8 @@ export interface Property {
   reviews: Review[];
   features: PropertyFeatures;
   aiScore?: number;
+  utilitiesIncluded?: boolean;
+  isAvailable?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,21 +140,60 @@ export interface Match {
 // Booking types
 export interface Booking {
   _id: string;
-  propertyId: string;
+  propertyId: Property; // Populated Property object
   property?: Property;
   tenantId: string;
   tenant?: User;
-  landlordId: string;
+  studentId: User; // Populated User object (student tenant)
+  landlordId: User; // Populated User object (landlord)
   landlord?: User;
   startDate: string;
   endDate: string;
   totalAmount: number;
+  monthlyRent: number;
+  securityDeposit: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
   paymentMethod: 'WafaCash' | 'CashPlus' | 'Bank Transfer' | 'Cash';
   paymentDetails?: PaymentDetails;
+  paymentVerification?: {
+    status: 'Pending' | 'Verified' | 'Rejected';
+    verifiedAt?: string;
+    verifiedBy?: string;
+    notes?: string;
+  };
+  paymentProof?: string; // URL to payment proof image/document
+  roommates?: User[]; // Array of roommate User objects
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Payment {
+  id: string;
+  bookingId: string;
+  landlordId: string;
+  tenantId: string;
+  propertyId: string;
+  amount: number;
+  currency: string;
+  method: 'bank_transfer' | 'cash' | 'check' | 'online' | 'WafaCash' | 'CashPlus';
+  status: 'pending' | 'verified' | 'rejected' | 'overdue' | 'cancelled' | 'paid' | 'failed' | 'refunded';
+  proofUrl?: string;
+  verificationNotes?: string;
+  dueDate: Date;
+  paidAt?: Date;
+  verifiedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaymentSummary {
+  total: number;
+  verified: number;
+  pending: number;
+  overdue: number;
+  cancelled?: number;
+  rejected?: number;
 }
 
 export interface PaymentDetails {
@@ -197,25 +242,262 @@ export interface Notification {
   createdAt: string;
 }
 
-// API Response types
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  message: string;
+  message?: string;
   error?: string;
 }
 
 export interface PaginatedResponse<T> {
   success: boolean;
-  data: T[];
-  pagination: {
+  data: {
     currentPage: number;
     totalPages: number;
-    totalItems: number;
-    itemsPerPage: number;
-  };
-  message: string;
+    totalCount: number;
+  } & T;
+  message?: string;
+  error?: string;
 }
+
+// Analytics types for landlord dashboard
+export interface RevenueData {
+  period: string;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  growth: number;
+}
+
+export interface RevenueAnalytics {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  profitMargin: number;
+  revenueData: RevenueData[];
+  paymentMethodBreakdown: {
+    method: string;
+    amount: number;
+    percentage: number;
+  }[];
+}
+
+export interface ExpenseBreakdown {
+  totalExpenses: number;
+  categories: {
+    category: string;
+    amount: number;
+    percentage: number;
+    color?: string;
+  }[];
+  monthlyTrend: {
+    month: string;
+    amount: number;
+  }[];
+}
+
+export interface PropertyPerformance {
+  propertyId: string;
+  propertyName: string;
+  revenue: number;
+  expenses: number;
+  netIncome: number;
+  occupancyRate: number;
+  averageRating: number;
+  bookingCount: number;
+  roi: number;
+}
+
+export interface DashboardOverview {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  profitMargin: number;
+  totalProperties: number;
+  occupiedProperties: number;
+  totalBookings: number;
+  pendingPayments: number;
+  recentActivity: {
+    type: 'booking' | 'payment' | 'maintenance' | 'document';
+    message: string;
+    timestamp: Date;
+  }[];
+}
+
+// Maintenance types for landlord management
+export interface MaintenanceRequest {
+  id: string;
+  propertyId: string;
+  tenantId: string;
+  landlordId: string;
+  title: string;
+  description: string;
+  category: 'plumbing' | 'electrical' | 'hvac' | 'appliances' | 'general' | 'emergency';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  images: string[];
+  estimatedCost?: number;
+  actualCost?: number;
+  contractor?: {
+    id?: string;
+    name: string;
+    phone: string;
+    email?: string;
+    specialty: string;
+  };
+  notes?: string;
+  timeline: {
+    status: string;
+    timestamp: Date;
+    notes?: string;
+    updatedBy: string;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+}
+
+// Document types for landlord document management
+export interface Document {
+  id: string;
+  landlordId: string;
+  propertyId?: string;
+  tenantId?: string;
+  title: string;
+  description?: string;
+  category: 'lease_agreement' | 'insurance_policy' | 'property_deed' | 'inspection_report' | 
+           'financial_statement' | 'tax_document' | 'maintenance_record' | 'legal_document' | 'other';
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  expiryDate?: Date;
+  tags: string[];
+  accessLevel: 'private' | 'tenant_shared' | 'public';
+  version: number;
+  isActive: boolean;
+  sharedWith: {
+    userId: string;
+    permissions: 'view' | 'download' | 'edit';
+    sharedAt: Date;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Expense types for landlord expense tracking
+export interface Expense {
+  id: string;
+  landlordId: string;
+  propertyId?: string;
+  category: 'maintenance' | 'utilities' | 'insurance' | 'taxes' | 'marketing' | 
+           'legal' | 'management' | 'repairs' | 'supplies' | 'other';
+  subcategory?: string;
+  amount: number;
+  currency: string;
+  description: string;
+  date: Date;
+  vendor?: {
+    name: string;
+    contact?: string;
+    email?: string;
+  };
+  receiptUrl?: string;
+  paymentMethod: 'cash' | 'bank_transfer' | 'credit_card' | 'check' | 'online';
+  isRecurring: boolean;
+  recurringPattern?: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+    interval: number;
+    endDate?: Date;
+  };
+  maintenanceRequestId?: string;
+  tags: string[];
+  notes?: string;
+  isDeductible: boolean;
+  taxCategory?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Property stats for analytics
+export interface PropertyStats {
+  totalViews: number;
+  totalBookings: number;
+  currentOccupancy: number;
+  averageRating: number;
+  monthlyRevenue: number;
+  yearlyRevenue: number;
+  occupancyRate: number;
+}
+
+// Specific API response types for landlord service
+export type PaymentHistoryResponse = PaginatedResponse<{
+  payments: Payment[];
+}>;
+
+export type PropertiesResponse = PaginatedResponse<{
+  properties: Property[];
+}>;
+
+export type BookingsResponse = PaginatedResponse<{
+  bookings: Booking[];
+}>;
+
+export type MaintenanceRequestsResponse = PaginatedResponse<{
+  requests: MaintenanceRequest[];
+}>;
+
+export type DocumentsResponse = PaginatedResponse<{
+  documents: Document[];
+}>;
+
+export type ExpensesResponse = PaginatedResponse<{
+  expenses: Expense[];
+}>;
+
+export type TenantsResponse = PaginatedResponse<{
+  tenants: User[];
+}>;
+
+// Property service response types
+export type PropertiesListResponse = PaginatedResponse<{
+  properties: Property[];
+}>;
+
+export type PropertySearchResponse = PaginatedResponse<{
+  properties: Property[];
+}>;
+
+export type PropertyReviewsResponse = PaginatedResponse<{
+  reviews: any[];
+}>;
+
+// Matching service response types
+export type MatchesResponse = PaginatedResponse<{
+  matches: Match[];
+}>;
+
+// Analytics response types
+export type RevenueAnalyticsResponse = ApiResponse<RevenueAnalytics>;
+export type ExpenseBreakdownResponse = ApiResponse<ExpenseBreakdown>;
+export type PropertyPerformanceResponse = ApiResponse<PropertyPerformance[]>;
+export type DashboardOverviewResponse = ApiResponse<DashboardOverview>;
+
+// Dashboard stats response
+export type DashboardStatsResponse = ApiResponse<{
+  totalProperties: number;
+  occupiedProperties: number;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  totalBookings: number;
+  pendingBookings: number;
+  totalTenants: number;
+  activeTenants: number;
+  pendingPayments: number;
+  overduePayments: number;
+  maintenanceRequests: number;
+  urgentMaintenance: number;
+}>;
 
 // Search and Filter types
 export interface SearchFilters {

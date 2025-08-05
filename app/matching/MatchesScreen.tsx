@@ -31,7 +31,7 @@ export default function MatchesScreen() {
     try {
       const res = await matchingService.getMatches(type, 1, 10);
       // console.log('🔍 [MATCHES FETCHED FROM SCREEN]', res);
-      setMatches(res.data || []);
+      setMatches(res.data?.matches || []);
     } catch (e: any) {
       setError(e.message || 'Failed to load matches');
     } finally {

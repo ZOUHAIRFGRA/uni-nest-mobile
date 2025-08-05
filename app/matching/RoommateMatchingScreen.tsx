@@ -30,7 +30,7 @@ export default function RoommateMatchingScreen() {
     setError(null);
     try {
       const response = await matchingService.getMatches('Roommate', 1, 10);
-      setMatches(response.data || []);
+      setMatches(response.data?.matches || []);
     } catch (e: any) {
       setError(e.message || 'Failed to load matches');
     } finally {
@@ -62,7 +62,7 @@ export default function RoommateMatchingScreen() {
     try {
       await matchingService.updateMatchStatus(id, action);
       await fetchMatches();
-    } catch (e) {
+    } catch {
       // Optionally show error
     } finally {
       setActionLoading(null);
