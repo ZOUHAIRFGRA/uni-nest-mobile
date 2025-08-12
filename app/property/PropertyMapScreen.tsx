@@ -154,6 +154,9 @@ export default function PropertyMapScreen() {
     );
   }
 
+  // console.log('Selected Property:', selectedProperty);
+  // console.log('All Properties:', allProperties);
+
   return (
     <View style={{ flex: 1 }}>
       {/* Location permission prompt modal */}
@@ -182,45 +185,50 @@ export default function PropertyMapScreen() {
       >
         <UrlTile urlTemplate="https://a.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
         {/* All property markers */}
-        {allProperties.map((prop: any) =>
-          prop.location && Array.isArray(prop.location.coordinates) && prop.location.coordinates.length === 2 ? (
-            <Marker
-              key={prop._id || prop.id}
-              coordinate={{
-                latitude: prop.location.coordinates[1],
-                longitude: prop.location.coordinates[0],
-              }}
-              pinColor={selectedProperty && (prop._id === selectedProperty._id || prop.id === selectedProperty.id) ? '#6C63FF' : undefined}
-            >
-              <Callout>
-                <View style={{ maxWidth: 200 }}>
-                  <Text
-                    style={{ fontWeight: 'bold', color: '#6C63FF' }}
-                    onPress={() => navigation.navigate('PropertyDetails', { id: prop._id || prop.id })}
-                  >
-                    {prop.title}
-                  </Text>
-                  <Text>{prop.address}</Text>
-                  {userLocation && prop.location && Array.isArray(prop.location.coordinates) && (
-                    <Text style={{ color: '#666', fontSize: 12 }}>
-                      {getDistanceFromLatLonInKm(
-                        userLocation.latitude,
-                        userLocation.longitude,
-                        prop.location.coordinates[1],
-                        prop.location.coordinates[0]
-                      ).toFixed(2)} km from you
-                    </Text>
-                  )}
-                  <RNButton
-                    title="Get Directions"
-                    onPress={() => userLocation && openDirections(prop.location.coordinates[1], prop.location.coordinates[0])}
-                    disabled={!userLocation}
-                  />
-                </View>
-              </Callout>
-            </Marker>
-          ) : null
-        )}
+{allProperties.map((prop: any) => {
+  // console.log('Selected Property:', selectedProperty);
+  // console.log('Current Property ID:', prop._id,"selectedProperty ID:", selectedProperty && selectedProperty._id);
+  // console.log('Condition Result:', selectedProperty && prop._id === selectedProperty._id);
+
+  return prop.location && Array.isArray(prop.location.coordinates) && prop.location.coordinates.length === 2 ? (
+    <Marker
+      key={prop._id || prop.id}
+      coordinate={{
+        latitude: prop.location.coordinates[1],
+        longitude: prop.location.coordinates[0],
+      }}
+      pinColor={selectedProperty && prop._id === selectedProperty._id ? 'red' : 'blue'}
+    >
+      <Callout>
+        <View style={{ maxWidth: 200 }}>
+          <Text
+            style={{ fontWeight: 'bold', color: '#6C63FF' }}
+            onPress={() => navigation.navigate('PropertyDetails', { id: prop._id || prop.id })}
+          >
+            {prop.title}
+          </Text>
+          <Text>{prop.address}</Text>
+          {userLocation && prop.location && Array.isArray(prop.location.coordinates) && (
+            <Text style={{ color: '#666', fontSize: 12 }}>
+              {getDistanceFromLatLonInKm(
+                userLocation.latitude,
+                userLocation.longitude,
+                prop.location.coordinates[1],
+                prop.location.coordinates[0]
+              ).toFixed(2)} km from you
+            </Text>
+          )}
+          <RNButton
+            title="Get Directions"
+            onPress={() => userLocation && openDirections(prop.location.coordinates[1], prop.location.coordinates[0])}
+            disabled={!userLocation}
+          />
+        </View>
+      </Callout>
+    </Marker>
+  ) : null;
+})}
+
         {/* User marker is handled by showsUserLocation */}
       </MapView>
       {/* Show distance to selected property below map */}
@@ -233,4 +241,4 @@ export default function PropertyMapScreen() {
       )}
     </View>
   );
-} 
+}
