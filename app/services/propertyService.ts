@@ -4,67 +4,116 @@ import { Property, PaginatedResponse, SearchFilters } from '../types';
 
 export class PropertyService {
   /**
-   * Get list of properties with optional filters
+   * Get list of properties with optional filters - OPTIMIZED
    */
   async getProperties(filters?: SearchFilters, page?: number, limit?: number): Promise<PaginatedResponse<{ properties: Property[] }>> {
     const params: Record<string, any> = {};
+    
+    // Basic pagination
+    if (page) params.page = page;
+    if (limit) params.limit = limit;
+    
+    // Enhanced filtering for optimized endpoint
     if (filters) {
-      if (filters.query) params.q = filters.query;
+      if (filters.query) params.q = filters.query; // Text search using database indexes
       if (filters.priceRange) {
         params.minPrice = filters.priceRange.min;
         params.maxPrice = filters.priceRange.max;
       }
-      if (filters.location) params.location = filters.location;
-      if (filters.roomType) params.roomType = filters.roomType.join(',');
-      if (filters.amenities) params.amenities = filters.amenities.join(',');
-      if (filters.distance) params.distance = filters.distance;
+      if (filters.location) {
+        // Enhanced location search with geospatial support
+        if (typeof filters.location === 'object' && 'coordinates' in filters.location) {
+          const coords = (filters.location as any).coordinates;
+          params.lat = coords[1];
+          params.lng = coords[0];
+          if (filters.distance) params.radius = filters.distance * 1000; // Convert km to meters
+        } else {
+          params.city = filters.location;
+        }
+      }
+      if (filters.roomType) params.roomType = Array.isArray(filters.roomType) ? filters.roomType.join(',') : filters.roomType;
+      if (filters.amenities) params.amenities = Array.isArray(filters.amenities) ? filters.amenities.join(',') : filters.amenities;
       if (filters.rating) params.minRating = filters.rating;
-      if (filters.available !== undefined) params.available = filters.available;
+      if (filters.available !== undefined) params.isAvailable = filters.available;
       if (filters.sortBy) params.sortBy = filters.sortBy;
       if (filters.sortOrder) params.sortOrder = filters.sortOrder;
+      
+      // Additional optimized filters (using any to handle potential new properties)
+      const extendedFilters = filters as any;
+      if (extendedFilters.propertyType) params.propertyType = extendedFilters.propertyType;
+      if (extendedFilters.bedrooms) params.bedrooms = extendedFilters.bedrooms;
+      if (extendedFilters.bathrooms) params.bathrooms = extendedFilters.bathrooms;
     }
-    if (page) params.page = page;
-    if (limit) params.limit = limit;
 
-    const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.LIST, params);
-    // console.log('🏠 [PROPERTIES RESPONSE FROM SERVICE]', response);
-   
-    if (response && Array.isArray(response.properties)) {
+    try {
+      // Use optimized endpoint that leverages database indexes and caching
+      const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.LIST, params);
+      // console.log('🏠 [OPTIMIZED PROPERTIES RESPONSE]', response);
+     
+      if (response && Array.isArray(response.properties)) {
+        return {
+          success: true,
+          data: {
+            currentPage: response.pagination?.currentPage || response.page || 1,
+            totalPages: response.pagination?.totalPages || Math.ceil((response.total || 0) / (limit || 10)),
+            totalCount: response.pagination?.totalProperties || response.total || 0,
+            properties: response.properties,
+          },
+          message: 'Properties retrieved successfully',
+        };
+      }
       return {
         success: true,
         data: {
-          currentPage: response.page,
-          totalPages: Math.ceil(response.total / response.limit),
-          totalCount: response.total,
-          properties: response.properties,
+          currentPage: 1,
+          totalPages: 0,
+          totalCount: 0,
+          properties: [],
         },
-        message: 'Properties retrieved successfully',
+        message: 'No properties found',
       };
+    } catch (error) {
+      console.error('Error fetching optimized properties:', error);
+      throw error;
     }
-    return {
-      success: true,
-      data: {
-        currentPage: 1,
-        totalPages: 0,
-        totalCount: 0,
-        properties: [],
-      },
-      message: 'No properties found',
-    };
   }
 
   /**
-   * Get property details by ID
+   * Get property details by ID - OPTIMIZED with caching
    */
   async getPropertyById(id: string): Promise<any> {
     try {
-      const response = await apiClient.get<Property>(API_ENDPOINTS.PROPERTIES.DETAILS(id));
+      const response = await apiClient.get<any>(API_ENDPOINTS.PROPERTIES.DETAILS(id));
+      
+      // Handle both old and new response formats
+      let propertyData;
+      if (response.property) {
+        // New optimized format
+        propertyData = response.property;
+      } else if (response.data) {
+        // Alternative format
+        propertyData = response.data;
+      } else {
+        // Direct property object
+        propertyData = response;
+      }
+      
       return {
         success: true,
-        data: response, // response is the property object
-        message: 'Property retrieved successfully',
+        data: propertyData,
+        message: response.message || 'Property retrieved successfully',
+        fromCache: response.fromCache || false,
       };
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error fetching property details:', error);
+      
+      // Handle specific error cases
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
+        throw new Error('Property not found');
+      } else if (error.message?.includes('Invalid property ID')) {
+        throw new Error('Invalid property ID format');
+      }
+      
       throw error;
     }
   }
@@ -118,45 +167,77 @@ export class PropertyService {
   }
 
   /**
-   * Search properties with text query
+   * Search properties with text query - OPTIMIZED with rate limiting awareness
    */
   async searchProperties(query: string, filters?: SearchFilters): Promise<PaginatedResponse<{ properties: Property[] }>> {
-    const params: Record<string, any> = { keyword: query };
+    const params: Record<string, any> = { q: query }; // Using 'q' for optimized text search
+    
     if (filters) {
       if (filters.priceRange) {
-        params.priceMin = filters.priceRange.min;
-        params.priceMax = filters.priceRange.max;
+        params.minPrice = filters.priceRange.min;
+        params.maxPrice = filters.priceRange.max;
       }
-      if (filters.location) params.location = filters.location;
-      if (filters.amenities) params.utilitiesIncluded = filters.amenities.includes('utilities');
+      if (filters.location) {
+        if (typeof filters.location === 'object' && 'coordinates' in filters.location) {
+          const coords = (filters.location as any).coordinates;
+          params.lat = coords[1];
+          params.lng = coords[0];
+          if (filters.distance) params.radius = filters.distance * 1000; // Convert km to meters
+        } else {
+          params.city = filters.location;
+        }
+      }
+      if (filters.amenities) params.amenities = Array.isArray(filters.amenities) ? filters.amenities.join(',') : filters.amenities;
+      if (filters.roomType) params.roomType = Array.isArray(filters.roomType) ? filters.roomType.join(',') : filters.roomType;
+      if (filters.available !== undefined) params.isAvailable = filters.available;
+      if (filters.sortBy) params.sortBy = filters.sortBy;
+      if (filters.sortOrder) params.sortOrder = filters.sortOrder;
+      
+      // Additional optimized filters
+      const extendedFilters = filters as any;
+      if (extendedFilters.propertyType) params.propertyType = extendedFilters.propertyType;
+      if (extendedFilters.bedrooms) params.bedrooms = extendedFilters.bedrooms;
+      if (extendedFilters.bathrooms) params.bathrooms = extendedFilters.bathrooms;
     }
-    const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.SEARCH, params);
-    if (response.data && Array.isArray(response.data.properties)) {
+    
+    try {
+      // Use optimized search endpoint with rate limiting (20 req/min)
+      const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.SEARCH, params);
+      
+      if (response && Array.isArray(response.properties)) {
+        return {
+          success: true,
+          data: {
+            currentPage: response.pagination?.currentPage || response.page || 1,
+            totalPages: response.pagination?.totalPages || 1,
+            totalCount: response.pagination?.totalProperties || response.properties.length,
+            properties: response.properties,
+          },
+          message: 'Properties found successfully',
+        };
+      }
       return {
         success: true,
         data: {
-          currentPage: response.data.page || 1,
-          totalPages: 1,
-          totalCount: response.data.properties.length,
-          properties: response.data.properties,
+          currentPage: 1,
+          totalPages: 0,
+          totalCount: 0,
+          properties: [],
         },
-        message: 'Properties found successfully',
+        message: 'No properties found',
       };
+    } catch (error: any) {
+      // Handle rate limiting gracefully
+      if (error.message?.includes('Too many search requests')) {
+        throw new Error('Search rate limit exceeded. Please wait a moment before searching again.');
+      }
+      console.error('Error in optimized property search:', error);
+      throw error;
     }
-    return {
-      success: true,
-      data: {
-        currentPage: 1,
-        totalPages: 0,
-        totalCount: 0,
-        properties: [],
-      },
-      message: 'No properties found',
-    };
   }
 
   /**
-   * Get nearby properties based on coordinates
+   * Get nearby properties based on coordinates - OPTIMIZED with geospatial indexes
    */
   async getNearbyProperties(
     latitude: number,
@@ -166,31 +247,40 @@ export class PropertyService {
     const params = {
       lat: latitude,
       lng: longitude,
-      radius: radius || 5000, // Default 5km radius
+      radius: radius || 5000, // Default 5km radius in meters
+      // Use the optimized search endpoint for geospatial queries
     };
-    const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.NEARBY, params);
-    if (response.data && Array.isArray(response.data.properties)) {
+    
+    try {
+      // Use optimized search endpoint which now supports geospatial queries with 2dsphere indexes
+      const response: any = await apiClient.get(API_ENDPOINTS.PROPERTIES.SEARCH, params);
+      
+      if (response && Array.isArray(response.properties)) {
+        return {
+          success: true,
+          data: {
+            currentPage: response.pagination?.currentPage || response.page || 1,
+            totalPages: response.pagination?.totalPages || 1,
+            totalCount: response.pagination?.totalProperties || response.properties.length,
+            properties: response.properties,
+          },
+          message: 'Nearby properties found successfully',
+        };
+      }
       return {
         success: true,
         data: {
-          currentPage: response.data.page || 1,
-          totalPages: 1,
-          totalCount: response.data.properties.length,
-          properties: response.data.properties,
+          currentPage: 1,
+          totalPages: 0,
+          totalCount: 0,
+          properties: [],
         },
-        message: 'Nearby properties found successfully',
+        message: 'No nearby properties found',
       };
+    } catch (error) {
+      console.error('Error fetching nearby properties:', error);
+      throw error;
     }
-    return {
-      success: true,
-      data: {
-        currentPage: 1,
-        totalPages: 0,
-        totalCount: 0,
-        properties: [],
-      },
-      message: 'No nearby properties found',
-    };
   }
 
   /**

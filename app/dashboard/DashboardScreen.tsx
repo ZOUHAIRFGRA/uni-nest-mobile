@@ -212,7 +212,7 @@ export default function DashboardScreen() {
               action="primary"
               size="md"
               style={{ borderRadius: currentTheme.borderRadius.button }}
-              onPress={() => goTo(isLandlord ? 'PropertyCreate' : 'PropertyDetails')}
+              onPress={() => goTo('Properties', { screen: 'PropertyCreate' })}
             >
               <ButtonText size="md">{isLandlord ? 'List Property' : 'Find Properties'}</ButtonText>
             </Button>
@@ -284,14 +284,7 @@ export default function DashboardScreen() {
                   <Text size="xl" style={{ fontWeight: '700', color: currentTheme.colors.text.primary }}>
                     Your Properties
                   </Text>
-                  <Button
-                    action="primary"
-                    size="sm"
-                    onPress={() => goTo('PropertyCreate')}
-                  >
-                    <ButtonText>Add Property</ButtonText>
-                  </Button>
-                </HStack>
+                                 </HStack>
                 
                 <Card style={{ padding: currentTheme.spacing.md, borderRadius: currentTheme.borderRadius.card }}>
                   {loading ? (
@@ -564,4 +557,4 @@ export default function DashboardScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}; 
+};

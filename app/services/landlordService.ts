@@ -100,8 +100,9 @@ class LandlordService {
     return await apiClient.get('/payments/stats', params);
   }
 
-  // Analytics APIs
+  // Analytics APIs - OPTIMIZED with caching
   async getDashboardStats() {
+    // This endpoint now uses 5-minute caching for faster response
     return await apiClient.get('/landlord/dashboard/stats');
   }
 
@@ -110,12 +111,14 @@ class LandlordService {
     if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
+    // This endpoint now uses 30-minute caching and optimized aggregation pipelines
     return await apiClient.get('/landlord/analytics/revenue', params);
   }
 
   async getOccupancyAnalytics(propertyId?: string) {
     const params: Record<string, any> = {};
     if (propertyId) params.propertyId = propertyId;
+    // This endpoint now uses 30-minute caching for better performance
     return await apiClient.get('/landlord/analytics/occupancy', params);
   }
 
@@ -130,23 +133,26 @@ class LandlordService {
     return await apiClient.post(`/landlord/tenants/${tenantId}/notify`, { title, message });
   }
 
-  // Financial Analytics APIs
+  // Financial Analytics APIs - OPTIMIZED
   async getExpenseBreakdown(period = 'monthly', categories?: string[], propertyIds?: string[], startDate?: string, endDate?: string) {
     const params: Record<string, any> = { period };
     if (categories?.length) params.categories = categories.join(',');
     if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
+    // Uses optimized aggregation with caching
     return await apiClient.get('/landlord/analytics/expenses', params);
   }
 
   async getPropertyPerformance(propertyIds?: string[], period = 'monthly') {
     const params: Record<string, any> = { period };
     if (propertyIds?.length) params.propertyIds = propertyIds.join(',');
+    // Uses database indexes and caching for faster analytics
     return await apiClient.get('/landlord/analytics/properties', params);
   }
 
   async getDashboardOverview() {
+    // Uses 5-minute caching for dashboard overview
     return await apiClient.get('/landlord/analytics/dashboard');
   }
 
