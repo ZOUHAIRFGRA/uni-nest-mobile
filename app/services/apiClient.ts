@@ -107,12 +107,12 @@ class ApiClient {
     let data: any;
     try {
       data = isJson ? await response.json() : await response.text();
-      console.log('API Response:', {
-        status: response.status,
-        ok: response.ok,
-        contentType,
-        data
-      });
+      if (__DEV__) {
+        console.log('API Response:', {
+          status: response.status,
+          ok: response.ok
+        });
+      }
     } catch {
       throw new Error('Failed to parse response');
     }
@@ -169,11 +169,19 @@ class ApiClient {
         headers,
       };
 
-      console.log('API Request:', url, config);
+      // Only log basic info in development
+      if (__DEV__) {
+        console.log('API Request:', {
+          url: url.split('?')[0], // URL without query params
+          method: config.method || 'GET'
+        });
+      }
       
-      // Add timeout to fetch request (30 seconds for mobile apps)
+      // Add timeout to fetch request (2 minutes for file uploads, 30s for regular requests)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+      const isUpload = config.body instanceof FormData;
+      const timeoutMs = isUpload ? 120000 : 30000; // 2 minutes for uploads, 30s for regular requests
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
       try {
         const response = await fetch(url, {
@@ -291,15 +299,10 @@ class ApiClient {
   // Upload file method
   async upload<T>(
     endpoint: string, 
-    file: any, 
+    formData: FormData, 
     additionalData?: Record<string, any>
   ): Promise<T> {
     try {
-      const formData = new FormData();
-      
-      // Add file to form data
-      formData.append('file', file);
-      
       // Add additional data if provided
       if (additionalData) {
         Object.entries(additionalData).forEach(([key, value]) => {
@@ -312,6 +315,15 @@ class ApiClient {
       
       if (token) {
         headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Don't set Content-Type for FormData - let browser set it with boundary
+      if (__DEV__) {
+        console.log('Upload Request:', {
+          url: `${this.baseURL}${endpoint}`,
+          method: 'POST',
+          hasToken: !!token
+        });
       }
 
       const response = await fetch(`${this.baseURL}${endpoint}`, {

@@ -119,6 +119,38 @@ export class PropertyService {
   }
 
   /**
+   * Create new property with file uploads (for landlords)
+   */
+  async createPropertyWithFiles(formData: FormData): Promise<any> {
+    try {
+      const response = await apiClient.upload<Property>(API_ENDPOINTS.PROPERTIES.CREATE, formData);
+      return {
+        success: true,
+        data: response, // response is the property object
+        message: 'Property created successfully',
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Update property with file uploads
+   */
+  async updatePropertyWithFiles(id: string, formData: FormData): Promise<any> {
+    try {
+      const response = await apiClient.put<Property>(API_ENDPOINTS.PROPERTIES.UPDATE(id), formData);
+      return {
+        success: true,
+        data: response, // response is the property object
+        message: 'Property updated successfully',
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Create new property (for landlords)
    */
   async createProperty(propertyData: Partial<Property>): Promise<any> {

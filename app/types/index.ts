@@ -71,25 +71,31 @@ export interface Property {
   title: string;
   description: string;
   price: number;
-  currency: string;
-  location: Location;
   address: string;
   maxTenants: number;
-  distanceToUniversity: number;
-  distanceToBusStop: number;
-  roomType: 'single' | 'shared' | 'studio' | 'apartment' | 'Private';
-  amenities: string[] | any;
-  images: string[];
+  images: string[]; // Array of image URLs
+  utilitiesIncluded: boolean;
+  location: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  distanceToUniversity: number; // in meters
+  distanceToBusStop: number; // in meters
+  amenities: {
+    wifi: boolean;
+    parking: boolean;
+    laundry: boolean;
+    gym: boolean;
+    security: boolean;
+    furnished: boolean;
+    airConditioning: boolean;
+    heating: boolean;
+    kitchen: boolean;
+    balcony: boolean;
+  };
+  roomType: 'Private' | 'Shared' | 'Studio';
+  isAvailable: boolean;
   landlordId: string;
-  landlord?: User;
-  available: boolean;
-  availableFrom: string;
-  rating: number;
-  reviews: Review[];
-  features: PropertyFeatures;
-  aiScore?: number;
-  utilitiesIncluded?: boolean;
-  isAvailable?: boolean;
   createdAt: string;
   updatedAt: string;
 }

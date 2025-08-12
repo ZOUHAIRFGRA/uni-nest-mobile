@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { useColorScheme, ScrollView, RefreshControl, Pressable, Alert } from 'react-native';
 import { getTheme } from '../utils/theme';
 import { VStack } from '../../components/ui/vstack';
 import { Text } from '../../components/ui/text';
@@ -63,8 +63,21 @@ export default function PropertySearchScreen() {
   const goToAdd = () => navigation.navigate('PropertyCreate', { mode: 'create' });
   const handleDelete = async (id: string) => {
     try {
-      await propertyService.deleteProperty(id);
-      fetchProperties();
+      Alert.alert(
+        'Delete Property',
+        'Are you sure you want to delete this property?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await propertyService.deleteProperty(id);
+              fetchProperties();
+            },
+          },
+        ]
+      );
     } catch (e: any) {
       setError(e.message || 'Failed to delete property');
     }
