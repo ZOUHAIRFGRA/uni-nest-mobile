@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme, ScrollView, TouchableOpacity } from 'react-native';
+import { useColorScheme, ScrollView, TouchableOpacity, Modal, Image as RNImage } from 'react-native';
 import { getTheme } from '../utils/theme';
 import { VStack } from '../../components/ui/vstack';
 import { Text } from '../../components/ui/text';
@@ -13,7 +13,6 @@ import { Spinner } from '../../components/ui/spinner';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HStack } from '@/components/ui/hstack';
-import { Image } from '@/components/ui/image';
 import { useSelector } from 'react-redux';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -31,6 +30,10 @@ export default function PropertyDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  
+  // Image modal state
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   
   // Landlord-specific state
   const [propertyStats, setPropertyStats] = useState<any>(null);
@@ -101,6 +104,26 @@ export default function PropertyDetailsScreen() {
     setFavoriteLoading(false);
   };
 
+  const openImageModal = (index: number) => {
+    setSelectedImageIndex(index);
+    setIsImageModalVisible(true);
+  };
+
+  const closeImageModal = () => {
+    setIsImageModalVisible(false);
+    setSelectedImageIndex(null);
+  };
+
+  const navigateImage = (direction: 'prev' | 'next') => {
+    if (!property?.images || selectedImageIndex === null) return;
+    
+    const newIndex = direction === 'next' 
+      ? (selectedImageIndex + 1) % property.images.length
+      : (selectedImageIndex - 1 + property.images.length) % property.images.length;
+    
+    setSelectedImageIndex(newIndex);
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: currentTheme.spacing.md }} showsVerticalScrollIndicator={false}>
@@ -161,14 +184,38 @@ export default function PropertyDetailsScreen() {
 
               {/* Images carousel */}
               {property.images && property.images.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: currentTheme.spacing.md }}>
-                  <HStack space="md">
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  style={{ marginBottom: currentTheme.spacing.md }}
+                  contentContainerStyle={{ paddingHorizontal: 0 }}
+                >
+                  <Box style={{ flexDirection: 'row' }}>
                     {property.images.map((img: string, idx: number) => (
-                      <Box key={idx} style={{ width: 220, height: 160, borderRadius: 12, overflow: 'hidden', backgroundColor: currentTheme.colors.card }}>
-                        <Image source={{ uri: img }} alt={`Property image ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </Box>
+                      <TouchableOpacity 
+                        key={idx} 
+                        onPress={() => openImageModal(idx)} 
+                        style={{ marginRight: idx === property.images.length - 1 ? 0 : 8 }}
+                      >
+                        <Box style={{ 
+                          width: 300, 
+                          height: 200, 
+                          borderRadius: 12, 
+                          overflow: 'hidden', 
+                          backgroundColor: currentTheme.colors.card
+                        }}>
+                          <RNImage 
+                            source={{ uri: img }} 
+                            style={{ 
+                              width: 300, 
+                              height: 200, 
+                              resizeMode: 'cover' 
+                            }} 
+                          />
+                        </Box>
+                      </TouchableOpacity>
                     ))}
-                  </HStack>
+                  </Box>
                 </ScrollView>
               )}
               
@@ -290,6 +337,122 @@ export default function PropertyDetailsScreen() {
           )}
         </Box>
       </ScrollView>
+
+      {/* Image Modal */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <TouchableOpacity 
+          style={{ 
+            flex: 1, 
+            backgroundColor: 'rgba(0, 0, 0, 0.9)', 
+            justifyContent: 'center', 
+            alignItems: 'center' 
+          }}
+          activeOpacity={1}
+          onPress={closeImageModal}
+        >
+          {/* Close button */}
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: 50, 
+              right: 20, 
+              zIndex: 10,
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: 25,
+              width: 50,
+              height: 50,
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}
+            onPress={closeImageModal}
+          >
+            <MaterialCommunityIcons name="close" size={24} color="white" />
+          </TouchableOpacity>
+
+          {/* Navigation buttons */}
+          {property?.images && property.images.length > 1 && (
+            <>
+              <TouchableOpacity 
+                style={{ 
+                  position: 'absolute', 
+                  left: 20, 
+                  zIndex: 10,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 25,
+                  width: 50,
+                  height: 50,
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+                onPress={() => navigateImage('prev')}
+              >
+                <MaterialCommunityIcons name="chevron-left" size={28} color="white" />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={{ 
+                  position: 'absolute', 
+                  right: 20, 
+                  zIndex: 10,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 25,
+                  width: 50,
+                  height: 50,
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+                onPress={() => navigateImage('next')}
+              >
+                <MaterialCommunityIcons name="chevron-right" size={28} color="white" />
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Current image */}
+          {selectedImageIndex !== null && property?.images && (
+            <TouchableOpacity 
+              style={{ 
+                width: '100%', 
+                height: '90%', 
+                justifyContent: 'center', 
+                alignItems: 'center' 
+              }}
+              activeOpacity={1}
+              onPress={() => {}} // Prevent closing when tapping image
+            >
+              <RNImage 
+                source={{ uri: property.images[selectedImageIndex] }} 
+                style={{ 
+                  width: '95%', 
+                  height: '95%', 
+                  resizeMode: 'contain'
+                }} 
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Image counter */}
+          {property?.images && selectedImageIndex !== null && (
+            <Box style={{ 
+              position: 'absolute', 
+              bottom: 50, 
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              borderRadius: 20,
+              paddingHorizontal: 16,
+              paddingVertical: 8
+            }}>
+              <Text style={{ color: 'white', fontSize: 14 }}>
+                {selectedImageIndex + 1} / {property.images.length}
+              </Text>
+            </Box>
+          )}
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 } 
