@@ -15,17 +15,7 @@ export default function CustomDrawerContent(props: any) {
 
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={styles.container}>
-      {/* Header with close chevron */}
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={() => navigation.closeDrawer()}
-          accessibilityLabel="Close drawer"
-        >
-          <MaterialCommunityIcons name="chevron-right" size={32} color="#6C63FF" />
-        </TouchableOpacity>
-      </View>
+     
       {/* Profile Section */}
       <TouchableOpacity
         style={styles.profileSection}
