@@ -236,18 +236,42 @@ export default function PropertyFormScreen() {
         balcony: amenities.balcony,
       }));
 
-      // Add images as files
-      console.log('Preparing compressed images for upload...');
-      for (let i = 0; i < form.images.length; i++) {
-        const uri = form.images[i];
-        const filename = `compressed_image_${i}_${Date.now()}.jpg`;
+      // Handle images differently for edit vs create mode
+      let hasNewImages = false;
+      
+      if (isEditMode) {
+        // In edit mode, check if there are any new images (local URIs vs Cloudinary URLs)
+        for (let i = 0; i < form.images.length; i++) {
+          const uri = form.images[i];
+          // Check if this is a new local image (not a Cloudinary URL)
+          if (!uri.includes('cloudinary.com')) {
+            hasNewImages = true;
+            const filename = `compressed_image_${i}_${Date.now()}.jpg`;
+            formData.append('images', {
+              uri,
+              type: 'image/jpeg',
+              name: filename,
+            } as any);
+          }
+        }
         
-        // Create file object for React Native
-        formData.append('images', {
-          uri,
-          type: 'image/jpeg',
-          name: filename,
-        } as any);
+        // If no new images, don't include existing Cloudinary URLs as files
+        // The server will keep existing images if no new ones are provided
+        console.log('Edit mode - New images detected:', hasNewImages);
+      } else {
+        // In create mode, add all images as files
+        console.log('Preparing compressed images for upload...');
+        for (let i = 0; i < form.images.length; i++) {
+          const uri = form.images[i];
+          const filename = `compressed_image_${i}_${Date.now()}.jpg`;
+          
+          formData.append('images', {
+            uri,
+            type: 'image/jpeg',
+            name: filename,
+          } as any);
+        }
+        hasNewImages = true;
       }
 
       console.log('Request Data:', {
@@ -256,11 +280,43 @@ export default function PropertyFormScreen() {
         address: form.address,
         imagesCount: form.images.length,
         location: { coordinates: [location.longitude, location.latitude] },
-        roomType: roomType
+        roomType: roomType,
+        isEditMode,
+        hasNewImages
       });
 
+      // Choose the appropriate service method based on whether we have new images
       const response = isEditMode
-        ? await propertyService.updatePropertyWithFiles(propertyId, formData)
+        ? (hasNewImages 
+            ? await propertyService.updatePropertyWithFiles(propertyId, formData)
+            : await propertyService.updateProperty(propertyId, {
+                title: form.title,
+                description: form.description,
+                price: Number(form.price),
+                address: form.address,
+                maxTenants: Number(form.maxTenants),
+                utilitiesIncluded: form.utilitiesIncluded,
+                distanceToUniversity: Number(distanceToUniversity),
+                distanceToBusStop: Number(distanceToBusStop),
+                roomType: roomType as 'Private' | 'Shared' | 'Studio',
+                isAvailable: isAvailable,
+                location: {
+                  type: 'Point',
+                  coordinates: [location.longitude, location.latitude],
+                },
+                amenities: {
+                  wifi: amenities.wifi,
+                  parking: amenities.parking,
+                  laundry: amenities.laundry,
+                  gym: amenities.gym,
+                  security: amenities.security,
+                  furnished: amenities.furnished,
+                  airConditioning: amenities.airConditioning,
+                  heating: amenities.heating,
+                  kitchen: amenities.kitchen,
+                  balcony: amenities.balcony,
+                }
+              }))
         : await propertyService.createPropertyWithFiles(formData);
 
       console.log('Response Data:', {
