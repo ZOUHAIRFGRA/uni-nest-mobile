@@ -63,7 +63,11 @@ function PropertyStackNavigator() {
   return (
     <PropertyStack.Navigator screenOptions={{ headerShown: true }}>
       <PropertyStack.Screen name="PropertySearch" component={PropertySearchScreen} options={{ headerShown: false }} />
-      <PropertyStack.Screen name="PropertyDetails" component={PropertyDetailsScreen} />
+      <PropertyStack.Screen 
+        name="PropertyDetails" 
+        component={PropertyDetailsScreen} 
+        options={{ headerShown: false }} // Hide header for custom in-screen header
+      />
       <PropertyStack.Screen name="PropertyMap" component={PropertyMapScreen} />
       <PropertyStack.Screen name="PropertyCreate" component={PropertyCreateScreen} />
       <PropertyStack.Screen name="Favorites" component={FavoritesScreen} />
@@ -267,7 +271,7 @@ const MainAppNavigator: React.FC = () => {
             >
               {isLandlord ? (
                 <>
-                  <Drawer.Screen name="LandlordTabs" component={LandlordTabs} options={{ title: 'Home' }} />
+                  <Drawer.Screen name="LandlordTabs" component={LandlordTabs} options={{ title: 'Home', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="home" size={size} color={color} />) }} />
                   <Drawer.Screen name="Finance" component={FinanceAnalyticsScreen} options={{ title: 'Finance & Analytics', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="chart-line" size={size} color={color} />) }} />
                   <Drawer.Screen name="Maintenance" component={MaintenanceManagementScreen} options={{ title: 'Maintenance', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="wrench" size={size} color={color} />) }} />
                   <Drawer.Screen name="Documents" component={DocumentManagementScreen} options={{ title: 'Documents', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="file-document" size={size} color={color} />) }} />
@@ -276,13 +280,13 @@ const MainAppNavigator: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Drawer.Screen name="MainTabs" component={MainTabs} options={{ title: 'Home' }} />
-                  <Drawer.Screen name="Bookings" component={BookingStackNavigator} />
-                  <Drawer.Screen name="RoommateMatching" component={RoommateMatchingScreen} options={{ title: 'Roommate Matching' }} />
-                  <Drawer.Screen name="Favorites" component={FavoritesScreen} />
-                  <Drawer.Screen name="Notifications" component={NotificationsScreen} />
+                  <Drawer.Screen name="MainTabs" component={MainTabs} options={{ title: 'Home', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="home" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Bookings" component={BookingStackNavigator} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="calendar" size={size} color={color} />) }} />
+                  <Drawer.Screen name="RoommateMatching" component={RoommateMatchingScreen} options={{ title: 'Roommate Matching', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="account-group" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Favorites" component={FavoritesScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="heart" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Notifications" component={NotificationsScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="bell" size={size} color={color} />) }} />
                   <Drawer.Screen name="Chat" component={ChatStackNavigator} options={{ title: 'Messages', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="message-text" size={size} color={color} />) }} />
-                  <Drawer.Screen name="Settings" component={SettingsScreen} />
+                  <Drawer.Screen name="Settings" component={SettingsScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="cog" size={size} color={color} />) }} />
                 </>
               )}
             </Drawer.Navigator>

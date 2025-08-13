@@ -157,10 +157,9 @@ export default function PropertySearchScreen() {
 }
 
 function PropertyCard({ property, goToDetails, goToEdit, handleDelete, isLandlord, currentTheme, FALLBACK_IMAGE }: any) {
-  const [imgError, setImgError] = React.useState(false);
-  const imageUrl = !imgError && property.images && property.images[0]
-    ? { uri: property.images[0] }
-    : FALLBACK_IMAGE;
+  const [, setImgError] = React.useState(false);
+  const imageUrl = property.images && property.images[0] ? { uri: property.images[0] } : require('@/assets/images/placeholder.jpg');
+
   return (
     <Pressable
       key={property.id || property._id}
@@ -173,11 +172,11 @@ function PropertyCard({ property, goToDetails, goToEdit, handleDelete, isLandlor
       <Card style={{ padding: currentTheme.spacing.md, borderRadius: currentTheme.borderRadius.card, position: 'relative' }}>
         <HStack space="md" style={{ alignItems: 'center' }}>
           {/* Property image with fallback */}
-          <Box style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', backgroundColor: currentTheme.colors.card, marginRight: currentTheme.spacing.md }}>
+          <Box style={{ width: 100, height: 100, borderRadius: 10, overflow: 'hidden', backgroundColor: currentTheme.colors.card, marginRight: currentTheme.spacing.md }}>
             <Image
-              source={{ uri: imageUrl }}
+              source={ imageUrl }
               onError={() => setImgError(true)}
-              size="md"
+              size="full"
               alt="property image"
               style={{ width: '100%', height: '100%' }}
             />

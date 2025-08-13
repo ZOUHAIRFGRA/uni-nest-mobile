@@ -15,6 +15,8 @@ import { Pressable } from '../../components/ui/pressable';
 import { Spinner } from '../../components/ui/spinner';
 import { Select, SelectTrigger, SelectInput, SelectIcon, SelectPortal, SelectBackdrop, SelectContent, SelectDragIndicatorWrapper, SelectDragIndicator, SelectItem } from '../../components/ui/select';
 import { ChevronDownIcon } from 'lucide-react-native';
+import { propertyService } from '../services/propertyService';
+import { useSelector } from 'react-redux';
 
 
 interface RevenueData {
@@ -65,7 +67,8 @@ const FinanceAnalyticsScreen: React.FC = () => {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [netProfit, setNetProfit] = useState(0);
   const [profitMargin, setProfitMargin] = useState(0);
-
+  const user = useSelector((state: any) => state.auth.user);
+  
 
   useEffect(() => {
     loadFinancialData();
@@ -87,8 +90,7 @@ const FinanceAnalyticsScreen: React.FC = () => {
 
       // Load payment summary
       const paymentResponse = await landlordService.getPaymentHistory();
-      console.log(
-        'Payment History Response:', paymentResponse);
+     
       if (paymentResponse.success) {
         const payments = paymentResponse.data?.payments || [];
         const summary = {
@@ -103,8 +105,7 @@ const FinanceAnalyticsScreen: React.FC = () => {
       // Load property financials
 
 
-      const propertiesResponse = await landlordService.getMyProperties();
-    console.log('Properties Response:', propertiesResponse);
+      const propertiesResponse = await propertyService.getPropertiesByLandlord(user?.id);
       if ((propertiesResponse as any)?.success) {
         const properties = (propertiesResponse as any).data?.properties || [];
         const financials = properties.map((property: any) => ({
