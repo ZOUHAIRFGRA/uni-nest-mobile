@@ -69,15 +69,7 @@ export default function RoommatePreferencesScreen() {
               <Picker.Item label="Yes" value="Yes" />
             </Picker>
           </Box>
-          {/* Alcohol Consumption */}
-          <Box>
-            <Text size="md" style={{ color: currentTheme.colors.text.secondary, marginBottom: currentTheme.spacing.xs }}>Alcohol Consumption</Text>
-            <Picker selectedValue={alcoholConsumption} onValueChange={setAlcoholConsumption} style={{ color: currentTheme.colors.text.primary }}>
-              <Picker.Item label="No" value="No" />
-              <Picker.Item label="Occasionally" value="Occasionally" />
-              <Picker.Item label="Yes" value="Yes" />
-            </Picker>
-          </Box>
+        
           {/* Pet Friendly */}
           <Box>
             <Text size="md" style={{ color: currentTheme.colors.text.secondary, marginBottom: currentTheme.spacing.xs }}>Pet Friendly</Text>

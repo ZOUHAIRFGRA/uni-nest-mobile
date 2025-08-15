@@ -286,7 +286,10 @@ export default function PropertyDetailsScreen() {
               
               {/* Role-based action buttons */}
               {!isOwner && (
-                <Button action="primary" style={{ marginTop: currentTheme.spacing.lg }} onPress={() => navigation.navigate('BookingCreate', { propertyId })}>
+                <Button action="primary" style={{ marginTop: currentTheme.spacing.lg }} onPress={() =>  navigation.navigate('Bookings', {
+      screen: 'BookingCreate',
+      params: { propertyId }
+    })}>
                   <ButtonText>Book This Property</ButtonText>
                 </Button>
               )}

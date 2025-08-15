@@ -21,6 +21,7 @@ export default function BookingCreateScreen() {
   const colorScheme = useColorScheme();
   const currentTheme = getTheme(colorScheme || 'light');
   const propertyId = route.params?.propertyId;
+  console.log("BookingCreateScreen - propertyId:", propertyId);
   const [monthlyRent, setMonthlyRent] = useState<number | null>(route.params?.monthlyRent ?? null);
   const [securityDeposit, setSecurityDeposit] = useState<number | null>(route.params?.securityDeposit ?? null);
 

@@ -107,4 +107,10 @@ export const bookingService = {
     }
     throw new Error('Failed to process payment');
   },
+    // Search users by name or email
+    searchUsers: async (query: string): Promise<any[]> => {
+      const response = await apiClient.get<any[]>(`/users/search?name=${encodeURIComponent(query)}`);
+      return response || [];
+    },
+
 };

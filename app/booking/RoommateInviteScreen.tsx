@@ -1,18 +1,17 @@
 import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme, ScrollView, RefreshControl } from 'react-native';
+import { useColorScheme, ScrollView } from 'react-native';
 import { getTheme } from '../utils/theme';
 import { VStack } from '../../components/ui/vstack';
 import { Text } from '../../components/ui/text';
-import { Box } from '../../components/ui/box';
 import { Button, ButtonText } from '../../components/ui/button';
 import { Input, InputField } from '../../components/ui/input';
 import { HStack } from '../../components/ui/hstack';
 import { Divider } from '../../components/ui/divider';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { API_ENDPOINTS } from '../utils/config';
-import { apiClient } from '../services/apiClient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { bookingService } from '../services/bookingService';
+import { roommateService } from '../services/roommateService';
 
 export default function RoommateInviteScreen() {
   const navigation = useNavigation<any>();
@@ -32,8 +31,8 @@ export default function RoommateInviteScreen() {
     setSearching(true);
     setError(null);
     try {
-      const res = await apiClient.get(API_ENDPOINTS.USERS.SEARCH, { query: search });
-      setSearchResults(res.data || []);
+      const res = await bookingService.searchUsers(search);
+      setSearchResults(res || []);
     } catch (e: any) {
       setError(e.message || 'Failed to search users');
       setSearchResults([]);
@@ -46,7 +45,21 @@ export default function RoommateInviteScreen() {
     setLoading(true);
     setError(null);
     try {
-      // Simulate invite (replace with backend call if available)
+      // Send real invitation through backend
+      await roommateService.sendInvitation({
+        toUserId: user._id,
+        propertyId: bookingData.propertyId,
+        bookingData: {
+          startDate: bookingData.startDate,
+          endDate: bookingData.endDate,
+          monthlyRent: bookingData.monthlyRent || 0,
+          securityDeposit: bookingData.securityDeposit || 0,
+          totalAmount: bookingData.totalAmount || ((bookingData.monthlyRent || 0) + (bookingData.securityDeposit || 0))
+        },
+        message: `Would you like to be roommates for this property?`
+      });
+     
+      // Add to local invited list for UI purposes
       setInvited((prev) => [...prev, { ...user, status: 'Pending' }]);
     } catch (e: any) {
       setError(e.message || 'Failed to invite roommate');

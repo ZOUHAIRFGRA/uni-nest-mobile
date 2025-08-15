@@ -33,6 +33,7 @@ import RoommatePreferencesScreen from '../matching/RoommatePreferencesScreen';
 import PropertyRecommendationsScreen from '../property/PropertyRecommendationsScreen';
 import PropertyCreateScreen from '../property/PropertyCreateScreen';
 import RoommateInviteScreen from '../booking/RoommateInviteScreen';
+import InvitationsScreen from '../booking/InvitationsScreen';
 import BookingPaymentScreen from '../booking/BookingPaymentScreen';
 import DisputeScreen from '../booking/DisputeScreen';
 import ViewUserProfileScreen from '../profile/ViewUserProfileScreen';
@@ -107,6 +108,7 @@ function BookingStackNavigator({ route }: any) {
           <BookingStack.Screen name="BookingCreate" component={BookingCreateScreen} />
           <BookingStack.Screen name="BookingDetails" component={BookingDetailsScreen} />
           <BookingStack.Screen name="RoommateInvite" component={RoommateInviteScreen} />
+          <BookingStack.Screen name="Invitations" component={InvitationsScreen} />
           <BookingStack.Screen name="BookingPayment" component={BookingPaymentScreen} />
           <BookingStack.Screen name="DisputeScreen" component={DisputeScreen} />
         </>
@@ -282,6 +284,7 @@ const MainAppNavigator: React.FC = () => {
                 <>
                   <Drawer.Screen name="MainTabs" component={MainTabs} options={{ title: 'Home', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="home" size={size} color={color} />) }} />
                   <Drawer.Screen name="Bookings" component={BookingStackNavigator} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="calendar" size={size} color={color} />) }} />
+                  <Drawer.Screen name="Invitations" component={InvitationsScreen} options={{ title: 'Roommate Invitations', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="account-multiple-plus" size={size} color={color} />) }} />
                   <Drawer.Screen name="RoommateMatching" component={RoommateMatchingScreen} options={{ title: 'Roommate Matching', drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="account-group" size={size} color={color} />) }} />
                   <Drawer.Screen name="Favorites" component={FavoritesScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="heart" size={size} color={color} />) }} />
                   <Drawer.Screen name="Notifications" component={NotificationsScreen} options={{ drawerIcon: ({ color, size }) => (<MaterialCommunityIcons name="bell" size={size} color={color} />) }} />

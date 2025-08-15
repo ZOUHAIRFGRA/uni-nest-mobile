@@ -9,7 +9,6 @@ import { Box } from '../../components/ui/box';
 import { HStack } from '../../components/ui/hstack';
 import { Input, InputField } from '../../components/ui/input';
 import { useNavigation } from '@react-navigation/native';
-import { authService } from '../services/authService';
 import { Link, LinkText } from '../../components/ui/link';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
@@ -18,11 +17,16 @@ import { getTheme } from '../utils/theme';
 import { MOROCCAN_UNIVERSITIES, STUDY_FIELDS } from '../utils/constants';
 import { AlertCircle, ArrowDownToDot, Info, X } from 'lucide-react-native';
 import { Switch } from 'react-native-gesture-handler';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../store/store';
+import { registerUser } from '../store/slices/authSlice';
 
 const steps = ['Role', 'Personal', 'University', 'Preferences', 'Lifestyle', 'Photo'];
+const landlordSteps = ['Role', 'Personal', 'Photo'];
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch<AppDispatch>();
   const colorScheme = useColorScheme();
   const currentTheme = getTheme(colorScheme || 'light');
   const [step, setStep] = useState(0);
@@ -64,7 +68,7 @@ export default function RegisterScreen() {
 
   // Lifestyle state
   const [smokingHabits, setSmokingHabits] = useState('No');
-  const [alcoholConsumption, setAlcoholConsumption] = useState('No');
+  const [alcoholConsumption] = useState('No'); // Keep for data structure but remove setter since it's not used
   const [petFriendly, setPetFriendly] = useState(false);
   const [sleepSchedule, setSleepSchedule] = useState('Flexible');
   const [socialLevel, setSocialLevel] = useState('Moderate');
@@ -87,7 +91,7 @@ export default function RegisterScreen() {
     return () => {
       fadeAnim.setValue(0); // Reset animation on step change
     };
-  }, [step]);
+  }, [step, fadeAnim]);
 
   // Button press animation
   const animateButton = () => {
@@ -125,6 +129,11 @@ export default function RegisterScreen() {
         setError('Please enter a valid email address.');
         return;
       }
+      // For landlords, skip to photo step (step 5)
+      if (role === 'Landlord') {
+        setStep(5);
+        return;
+      }
       setStep(step + 1);
       return;
     }
@@ -141,6 +150,11 @@ export default function RegisterScreen() {
 
   const prev = () => {
     animateButton();
+    // For landlords on photo step (step 5), go back to personal info (step 1)
+    if (role === 'Landlord' && step === 5) {
+      setStep(1);
+      return;
+    }
     setStep((s) => Math.max(s - 1, 0));
   };
 
@@ -149,7 +163,8 @@ export default function RegisterScreen() {
     setLoading(true);
     animateButton();
     try {
-      await authService.register({
+      // Prepare registration data based on role
+      const registrationData = {
         firstName,
         lastName,
         email,
@@ -160,28 +175,42 @@ export default function RegisterScreen() {
         dob,
         gender,
         role,
-        university: role === 'Student' ? university : undefined,
-        studyField: role === 'Student' ? studyField : undefined,
-        yearOfStudy: role === 'Student' ? yearOfStudy ?? undefined : undefined,
-        preferences: {
-          budget: { min: Number(budgetMin) || 0, max: Number(budgetMax) || 0 },
-          preferredAreas: preferredAreas.split(',').map((a) => a.trim()).filter(Boolean),
-          maxCommuteTime: Number(maxCommuteTime) || 0,
-          amenities,
-          roomType,
-        },
-        lifestyle: {
-          smokingHabits,
-          alcoholConsumption,
-          petFriendly,
-          sleepSchedule,
-          socialLevel,
-          cleanlinessLevel,
-          noiseLevel,
-          guestPolicy,
-        },
-      });
-      navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+        // Only include student-specific data for students
+        ...(role === 'Student' && {
+          university,
+          studyField,
+          yearOfStudy: yearOfStudy ?? undefined,
+          preferences: {
+            budget: { min: Number(budgetMin) || 0, max: Number(budgetMax) || 0 },
+            preferredAreas: preferredAreas.split(',').map((a) => a.trim()).filter(Boolean),
+            maxCommuteTime: Number(maxCommuteTime) || 0,
+            amenities,
+            roomType,
+          },
+          lifestyle: {
+            smokingHabits,
+            alcoholConsumption,
+            petFriendly,
+            sleepSchedule,
+            socialLevel,
+            cleanlinessLevel,
+            noiseLevel,
+            guestPolicy,
+          },
+        }),
+      };
+
+      // Dispatch the registerUser thunk which handles auto-login
+      const result = await dispatch(registerUser(registrationData));
+      
+      // Check if the registration was successful
+      if (registerUser.fulfilled.match(result)) {
+        // Registration and auto-login successful - auth state will handle navigation
+        console.log('Registration and auto-login successful');
+      } else {
+        // Registration failed
+        throw new Error(result.payload as string || 'Registration failed');
+      }
     } catch (err: any) {
       setError(err?.message || 'Registration failed. Please try again.');
     } finally {
@@ -517,7 +546,6 @@ size="sm"
                       <Picker.Item label="Select gender..." value="" />
                       <Picker.Item label="Male" value="Male" />
                       <Picker.Item label="Female" value="Female" />
-                      <Picker.Item label="Other" value="Other" />
                     </Picker>
                   </Box>
                 </Box>
@@ -942,7 +970,7 @@ size="sm"
                 </Picker>
               </Box>
             </Box>
-            <Box>
+            {/* <Box>
               <Text
                 size="sm"
                 style={{
@@ -974,7 +1002,7 @@ size="sm"
                   <Picker.Item label="Yes" value="Yes" />
                 </Picker>
               </Box>
-            </Box>
+            </Box> */}
             <Box style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text
                 size="sm"
@@ -1269,19 +1297,31 @@ size="sm"
             >
       {/* Progress Indicator */}
               <HStack space="sm" style={{ marginBottom: currentTheme.spacing.lg }}>
-        {steps.map((label, idx) => (
-          <Box
-            key={label}
-                    style={{
-                      height: 8,
-                      flex: 1,
-                      borderRadius: currentTheme.borderRadius.round,
-                      backgroundColor: idx <= step ? currentTheme.colors.primary : currentTheme.colors.border,
-                    }}
-                    accessible
-                    accessibilityLabel={`Step ${idx + 1} of ${steps.length}: ${label}`}
-          />
-        ))}
+        {(role === 'Landlord' ? landlordSteps : steps).map((label, idx) => {
+          // For landlords, map the actual step to progress indicator
+          let isActive = false;
+          if (role === 'Landlord') {
+            if (idx === 0) isActive = step === 0; // Role
+            else if (idx === 1) isActive = step === 1; // Personal
+            else if (idx === 2) isActive = step === 5; // Photo (step 5 in actual flow)
+          } else {
+            isActive = idx <= step;
+          }
+          
+          return (
+            <Box
+              key={label}
+                      style={{
+                        height: 8,
+                        flex: 1,
+                        borderRadius: currentTheme.borderRadius.round,
+                        backgroundColor: isActive ? currentTheme.colors.primary : currentTheme.colors.border,
+                      }}
+                      accessible
+                      accessibilityLabel={`Step ${idx + 1} of ${role === 'Landlord' ? landlordSteps.length : steps.length}: ${label}`}
+            />
+          );
+        })}
       </HStack>
       {/* Step Content */}
               <Box style={{ width: '100%', marginBottom: currentTheme.spacing.lg }}>{renderStep()}</Box>
@@ -1360,11 +1400,19 @@ size="sm"
                       ...currentTheme.shadows.medium,
                       elevation: 4,
                     }}
-                    onPress={step === steps.length - 1 ? handleRegister : next}
+                    onPress={
+                      (role === 'Landlord' && step === 5) || (role === 'Student' && step === steps.length - 1) 
+                        ? handleRegister 
+                        : next
+                    }
                     disabled={loading}
                     accessible
                     accessibilityRole="button"
-                    accessibilityLabel={step === steps.length - 1 ? 'Finish registration' : 'Go to next step'}
+                    accessibilityLabel={
+                      (role === 'Landlord' && step === 5) || (role === 'Student' && step === steps.length - 1)
+                        ? 'Finish registration' 
+                        : 'Go to next step'
+                    }
                   >
                     <ButtonText
                       size="md"
@@ -1374,7 +1422,12 @@ size="sm"
                       }}
                       allowFontScaling
                     >
-                      {loading ? 'Processing...' : step === steps.length - 1 ? 'Finish' : 'Next'}
+                      {loading 
+                        ? 'Processing...' 
+                        : ((role === 'Landlord' && step === 5) || (role === 'Student' && step === steps.length - 1))
+                          ? 'Finish' 
+                          : 'Next'
+                      }
                     </ButtonText>
         </Button>
                 </Animated.View>
