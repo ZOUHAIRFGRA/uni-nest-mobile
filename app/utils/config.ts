@@ -280,7 +280,7 @@ export const MOROCCAN_UNIVERSITIES = [
 // Payment methods available in Morocco
 export const PAYMENT_METHODS = [
   {
-    id: 'wafacash',
+    id: 'WafaCash',
     name: 'WafaCash',
     icon: '💳',
     description: 'Mobile money transfer',
@@ -289,7 +289,7 @@ export const PAYMENT_METHODS = [
     maxAmount: 50000,
   },
   {
-    id: 'cashplus',
+    id: 'CashPlus',
     name: 'CashPlus',
     icon: '💰',
     description: 'Mobile payment service',
@@ -299,7 +299,7 @@ export const PAYMENT_METHODS = [
   },
   {
     id: 'bank_transfer',
-    name: 'Bank Transfer',
+    name: 'Bank_Transfer',
     icon: '🏦',
     description: 'Direct bank transfer',
     fees: 0.01, // 1%
@@ -307,7 +307,7 @@ export const PAYMENT_METHODS = [
     maxAmount: 100000,
   },
   {
-    id: 'cash',
+    id: 'Cash',
     name: 'Cash',
     icon: '💵',
     description: 'Pay in cash on delivery',

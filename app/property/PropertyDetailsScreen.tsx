@@ -288,7 +288,11 @@ export default function PropertyDetailsScreen() {
               {!isOwner && (
                 <Button action="primary" style={{ marginTop: currentTheme.spacing.lg }} onPress={() =>  navigation.navigate('Bookings', {
       screen: 'BookingCreate',
-      params: { propertyId }
+      params: { 
+        propertyId,
+        monthlyRent: property.price,
+        securityDeposit: property.price // Using rent amount as security deposit (common practice)
+      }
     })}>
                   <ButtonText>Book This Property</ButtonText>
                 </Button>

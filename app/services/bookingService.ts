@@ -29,6 +29,8 @@ export const bookingService = {
     endDate: string;
     monthlyRent: number;
     securityDeposit: number;
+    totalAmount: number;
+    paymentMethod: string;
     roommates?: string[];
   }): Promise<Booking> => {
     const response = await apiClient.post<{ success: boolean; data: Booking }>('/bookings', bookingData);
@@ -107,6 +109,15 @@ export const bookingService = {
       return response.data.data;
     }
     throw new Error('Failed to process payment');
+  },
+
+  // Upload payment proof for booking
+  uploadPaymentProof: async (bookingId: string, formData: FormData): Promise<any> => {
+    const response = await apiClient.upload<{ success: boolean; data: any }>(`/bookings/${bookingId}/payment-proof`, formData);
+    if (response?.success && response?.data) {
+      return response.data;
+    }
+    throw new Error('Failed to upload payment proof');
   },
 
   // Search users by name or email (filtered for students only, excluding current user)

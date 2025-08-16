@@ -11,8 +11,7 @@ import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Divider } from '../../components/ui/divider';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { API_ENDPOINTS, PAYMENT_METHODS } from '../utils/config';
-import { apiClient } from '../services/apiClient';
+import { PAYMENT_METHODS } from '../utils/config';
 import { bookingService } from '../services/bookingService';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,6 +24,7 @@ export default function BookingPaymentScreen() {
   const colorScheme = useColorScheme();
   const currentTheme = getTheme(colorScheme || 'light');
   const bookingId = route.params?.bookingId;
+  const bookingData = route.params?.bookingData;
 
   // Booking data state
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -33,20 +33,45 @@ export default function BookingPaymentScreen() {
 
   // Payment form state
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [instructions, setInstructions] = useState('');
   const [proofImage, setProofImage] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const fetchBooking = async () => {
-      if (!bookingId) return;
-      
+    const initializeBooking = async () => {
       setLoading(true);
       setError(null);
+      
       try {
-        const response: any = await bookingService.getBookingById(bookingId);
-        setBooking(response.data || response);
+        if (bookingId) {
+          // Fetch existing booking for viewing/editing
+          const response: any = await bookingService.getBookingById(bookingId);
+          setBooking(response.data || response);
+        } else if (bookingData) {
+          // Prepare booking data for display but don't create booking yet
+          const roommates = route.params?.roommates || [];
+          const monthlyRent = bookingData.monthlyRent || 0;
+          const securityDeposit = bookingData.securityDeposit || 0;
+          const totalAmount = monthlyRent + securityDeposit;
+          
+          // Create a temporary booking object for display
+          const tempBooking = {
+            propertyId: bookingData.propertyId,
+            startDate: bookingData.startDate,
+            endDate: bookingData.endDate,
+            monthlyRent,
+            securityDeposit,
+            totalAmount,
+            roommates,
+            paymentStatus: 'Pending',
+            status: 'Pending',
+            paymentMethod: null
+          };
+          
+          setBooking(tempBooking as any);
+        } else {
+          setError('No booking data provided');
+        }
       } catch (e: any) {
         setError(e.message || 'Failed to load booking details');
       } finally {
@@ -54,21 +79,13 @@ export default function BookingPaymentScreen() {
       }
     };
     
-    fetchBooking();
-  }, [bookingId]);
+    initializeBooking();
+  }, [bookingId, bookingData, route.params?.roommates]);
 
   const handleSelectMethod = async (method: string) => {
     setPaymentMethod(method);
-    setInstructions('');
     setError(null);
-    try {
-      // Fetch payment instructions from backend
-      const res: any = await apiClient.get(API_ENDPOINTS.PAYMENTS.INSTRUCTIONS(method));
-      setInstructions(res.data?.instructions || '');
-    } catch (e: any) {
-      setInstructions('');
-      setError(e.message || 'Failed to fetch payment instructions');
-    }
+    // Remove instructions fetching - just set the payment method
   };
 
   const handlePickImage = async () => {
@@ -84,17 +101,64 @@ export default function BookingPaymentScreen() {
   };
 
   const handleUploadProof = async () => {
-    if (!proofImage) return;
+    if (!proofImage || !paymentMethod) return;
+    
     setUploading(true);
     setError(null);
+    
     try {
-      // Simulate upload (replace with backend call if available)
-      // const formData = new FormData();
-      // formData.append('proof', { uri: proofImage.uri, name: 'proof.jpg', type: 'image/jpeg' });
-      // await apiClient.post(API_ENDPOINTS.PAYMENTS.UPLOAD_PROOF(bookingId), formData);
-      setSuccess(true);
+      // First, create the booking with payment details
+      if (bookingData && !booking?._id) {
+        const roommates = route.params?.roommates || [];
+        const roommateIds = roommates.map((r: any) => r._id).filter(Boolean);
+        const monthlyRent = bookingData.monthlyRent || 0;
+        const securityDeposit = bookingData.securityDeposit || 0;
+        const totalAmount = monthlyRent + securityDeposit;
+        
+        const newBookingData = {
+          propertyId: bookingData.propertyId,
+          startDate: bookingData.startDate,
+          endDate: bookingData.endDate,
+          monthlyRent,
+          securityDeposit,
+          totalAmount,
+          roommates: roommateIds,
+          paymentMethod // Use selected payment method
+        };
+        
+        const createdBooking = await bookingService.createBooking(newBookingData);
+        setBooking(createdBooking);
+        
+        // Upload payment proof to the created booking
+        const formData = new FormData();
+        formData.append('proof', {
+          uri: proofImage.uri,
+          name: 'payment_proof.jpg',
+          type: 'image/jpeg',
+        } as any);
+        
+        await bookingService.uploadPaymentProof(createdBooking._id, formData);
+        
+        setSuccess(true);
+        
+        // Navigate to booking details or success screen
+        setTimeout(() => {
+          navigation.replace('BookingDetails', { id: createdBooking._id });
+        }, 2000);
+      } else if (booking?._id) {
+        // For existing bookings, just upload proof
+        const formData = new FormData();
+        formData.append('proof', {
+          uri: proofImage.uri,
+          name: 'payment_proof.jpg',
+          type: 'image/jpeg',
+        } as any);
+        
+        await bookingService.uploadPaymentProof(booking._id, formData);
+        setSuccess(true);
+      }
     } catch (e: any) {
-      setError(e.message || 'Failed to upload payment proof');
+      setError(e.message || 'Failed to submit payment');
     } finally {
       setUploading(false);
     }
@@ -148,8 +212,9 @@ export default function BookingPaymentScreen() {
     );
   }
 
-  const isPaid = booking.paymentStatus.toLowerCase() === 'paid';
-  const isCompleted = booking.status.toLowerCase() === 'completed';
+  const isPaid = booking?.paymentStatus?.toLowerCase() === 'paid';
+  const isCompleted = booking?.status?.toLowerCase() === 'completed';
+  const isNewBooking = !booking?._id; // True if this is a new booking being created
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.colors.background }}>
@@ -234,7 +299,7 @@ export default function BookingPaymentScreen() {
                   <VStack style={{ flex: 1 }}>
                     <Text size="xs" style={{ color: currentTheme.colors.text.secondary, fontWeight: '500' }}>Payment Method</Text>
                     <Text size="sm" style={{ fontWeight: '600', color: currentTheme.colors.text.primary }}>
-                      {booking.paymentMethod || 'Not selected'}
+                      {paymentMethod || booking.paymentMethod || 'Not selected'}
                     </Text>
                   </VStack>
                   <VStack style={{ flex: 1, alignItems: 'flex-end' }}>
@@ -366,23 +431,6 @@ export default function BookingPaymentScreen() {
                 </VStack>
               </Card>
 
-              {/* Payment Instructions */}
-              {instructions && (
-                <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.warning + '20' }}>
-                  <VStack space="sm">
-                    <HStack style={{ alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="information" size={20} color={currentTheme.colors.warning} />
-                      <Text size="md" style={{ fontWeight: '600', color: currentTheme.colors.text.primary, marginLeft: currentTheme.spacing.xs }}>
-                        Payment Instructions
-                      </Text>
-                    </HStack>
-                    <Text size="sm" style={{ color: currentTheme.colors.text.primary, lineHeight: 20 }}>
-                      {instructions}
-                    </Text>
-                  </VStack>
-                </Card>
-              )}
-
               {/* Upload Payment Proof */}
               <Card style={{ padding: currentTheme.spacing.md, backgroundColor: currentTheme.colors.surface }}>
                 <VStack space="md">
@@ -417,7 +465,7 @@ export default function BookingPaymentScreen() {
                     onPress={handleUploadProof} 
                     disabled={uploading || !proofImage || !paymentMethod}
                   >
-                    <ButtonText>{uploading ? 'Uploading...' : 'Submit Payment Proof'}</ButtonText>
+                    <ButtonText>{uploading ? 'Creating Booking...' : (isNewBooking ? 'Create Booking & Submit Payment' : 'Submit Payment Proof')}</ButtonText>
                   </Button>
                 </VStack>
               </Card>
