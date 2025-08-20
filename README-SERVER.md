@@ -319,6 +319,7 @@ npm run test:watch
 For detailed API documentation, start the server and visit:
 - Development: `http://localhost:5000`
 - Health check: `http://localhost:5000/health`
+- in Prod : `https://uni-nest-api.vercel.app/`
 
 ## 🤝 Contributing
 
